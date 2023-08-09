@@ -1,6 +1,8 @@
+mod extended_point;
 use anyhow::{Context, Ok};
 use clap::Parser;
 use e57::E57Reader;
+use extended_point::ExtendedPoint;
 use las::Write;
 use nalgebra::{Point3, Quaternion, UnitQuaternion, Vector3};
 
@@ -60,14 +62,14 @@ fn main() -> anyhow::Result<()> {
                 let p = e57::Point::from_values(p, &pointcloud.prototype)
                     .context("Failed to convert raw point to simple point")?;
 
-                let xyz = if let Some(c) = p.cartesian {
+                let xyz = if let Some(ref c) = p.cartesian {
                     if let Some(invalid) = p.cartesian_invalid {
                         if invalid != 0 {
                             continue;
                         }
                     }
                     Point3::new(c.x, c.y, c.z)
-                } else if let Some(s) = p.spherical {
+                } else if let Some(ref s) = p.spherical {
                     if let Some(invalid) = p.spherical_invalid {
                         if invalid != 0 {
                             continue;
@@ -86,11 +88,13 @@ fn main() -> anyhow::Result<()> {
                 };
 
                 let xyz = rotation.transform_point(&xyz) + translation;
+                let las_rgb = ExtendedPoint::from(p).rgb_color;
 
                 let las_point = las::Point {
                     x: xyz.x,
                     y: xyz.y,
                     z: xyz.z,
+                    color: las_rgb,
                     ..Default::default()
                 };
 
