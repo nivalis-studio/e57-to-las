@@ -40,5 +40,6 @@ fn clamp(value: f32) -> f32 {
 }
 
 fn to_u16(value: f32) -> u16 {
+    // TODO: check if this is correct or if we should do * 255.0
     (clamp(value) * 65535.0) as u16
 }
