@@ -1,5 +1,5 @@
 mod extended_point;
-use anyhow::{Context, Ok};
+use anyhow::{Context, Result};
 use clap::Parser;
 use e57::E57Reader;
 use extended_point::ExtendedPoint;
@@ -16,110 +16,111 @@ struct Args {
     should_save: bool,
 }
 
-fn main() -> anyhow::Result<()> {
+fn main() -> Result<()> {
     let args = Args::parse();
 
     let input_path = args.path;
     let must_save = args.should_save;
 
     let mut file = E57Reader::from_file(&input_path).context("Failed to open e57 file")?;
-
     let pointclouds = file.pointclouds();
 
     dbg!(pointclouds.len());
 
-    if must_save {
-        for (index, pointcloud) in pointclouds.iter().enumerate() {
-            let iter = file
-                .pointcloud(&pointcloud)
-                .context("Unable to get point cloud iterator")?;
+    if !must_save {
+        println!("Conversion not performed as must_save is false.");
+        return Ok(());
+    }
 
-            let file_name = input_path.split(".e57").next().unwrap();
-            let las_path = format!("{}{}{}", &file_name, index, ".las");
-            let transform = pointcloud.transform.clone().unwrap_or(default_transform());
-            let rotation = UnitQuaternion::from_quaternion(Quaternion::new(
-                transform.rotation.w,
-                transform.rotation.x,
-                transform.rotation.y,
-                transform.rotation.z,
-            ));
-            let translation = Vector3::new(
-                transform.translation.x,
-                transform.translation.y,
-                transform.translation.z,
-            );
-            // let first_point = iter.next().unwrap().unwrap();
-            //
-            // let e57_point = e57::Point::from_values(first_point, &pointcloud.prototype).unwrap();
-            //
-            // let x = k
+    for (index, pointcloud) in pointclouds.iter().enumerate() {
+        let iter = file
+            .pointcloud(&pointcloud)
+            .context("Unable to get point cloud iterator")?;
 
-            let mut writer = las::Writer::from_path(&las_path, Default::default())?;
+        let file_name = input_path.split(".e57").next().unwrap();
+        let las_path = format!("{}{}{}", &file_name, index, ".las");
+        let transform = pointcloud.transform.clone().unwrap_or(default_transform());
+        let rotation = UnitQuaternion::from_quaternion(Quaternion::new(
+            transform.rotation.w,
+            transform.rotation.x,
+            transform.rotation.y,
+            transform.rotation.z,
+        ));
+        let translation = Vector3::new(
+            transform.translation.x,
+            transform.translation.y,
+            transform.translation.z,
+        );
+        // let first_point = iter.next().unwrap().unwrap();
+        //
+        // let e57_point = e57::Point::from_values(first_point, &pointcloud.prototype).unwrap();
+        //
+        // let x = k
 
-            for p in iter {
-                let p = p.context("Unable to read next point")?;
+        let mut writer = las::Writer::from_path(&las_path, Default::default())?;
 
-                let p = e57::Point::from_values(p, &pointcloud.prototype)
-                    .context("Failed to convert raw point to simple point")?;
+        for p in iter {
+            let p = p.context("Unable to read next point")?;
 
-                let xyz = if let Some(ref c) = p.cartesian {
-                    if let Some(invalid) = p.cartesian_invalid {
-                        if invalid != 0 {
-                            continue;
-                        }
+            let p = e57::Point::from_values(p, &pointcloud.prototype)
+                .context("Failed to convert raw point to simple point")?;
+
+            let xyz = if let Some(ref c) = p.cartesian {
+                if let Some(invalid) = p.cartesian_invalid {
+                    if invalid != 0 {
+                        continue;
                     }
-                    Point3::new(c.x, c.y, c.z)
-                } else if let Some(ref s) = p.spherical {
-                    if let Some(invalid) = p.spherical_invalid {
-                        if invalid != 0 {
-                            continue;
-                        }
+                }
+                Point3::new(c.x, c.y, c.z)
+            } else if let Some(ref s) = p.spherical {
+                if let Some(invalid) = p.spherical_invalid {
+                    if invalid != 0 {
+                        continue;
                     }
-                    let cos_ele = f64::cos(s.elevation);
+                }
+                let cos_ele = f64::cos(s.elevation);
 
-                    Point3::new(
-                        s.range * cos_ele * f64::cos(s.azimuth),
-                        s.range * cos_ele * f64::sin(s.azimuth),
-                        s.range * f64::sin(s.elevation),
-                    )
-                } else {
-                    // No coordinates found, skip point
-                    continue;
-                };
+                Point3::new(
+                    s.range * cos_ele * f64::cos(s.azimuth),
+                    s.range * cos_ele * f64::sin(s.azimuth),
+                    s.range * f64::sin(s.elevation),
+                )
+            } else {
+                // No coordinates found, skip point
+                continue;
+            };
 
-                let xyz = rotation.transform_point(&xyz) + translation;
-                let las_rgb = ExtendedPoint::from(p).rgb_color;
+            let xyz = rotation.transform_point(&xyz) + translation;
+            let las_rgb = ExtendedPoint::from(p).rgb_color;
 
-                let las_point = las::Point {
-                    x: xyz.x,
-                    y: xyz.y,
-                    z: xyz.z,
-                    color: las_rgb,
-                    ..Default::default()
-                };
+            let las_point = las::Point {
+                x: xyz.x,
+                y: xyz.y,
+                z: xyz.z,
+                color: las_rgb,
+                ..Default::default()
+            };
 
-                // let e57_point = e57::Point::from_values(p.unwrap(), &pointcloud.prototype).unwrap();
-                // let CartesianCoordinate { x, y, z } = e57_point.cartesian.unwrap();
-                // // let e57::Color { red, green, blue } = e57_point.color.unwrap();
-                //
-                // let las_point = las::Point {
-                //     x,
-                //     y,
-                //     z,
-                //     ..Default::default()
-                // };
-                //
-                writer.write(las_point).unwrap();
-            }
-
-            writer.close().unwrap();
-
-            println!("Saved pointcloud {} in {}", index, las_path);
+            // let e57_point = e57::Point::from_values(p.unwrap(), &pointcloud.prototype).unwrap();
+            // let CartesianCoordinate { x, y, z } = e57_point.cartesian.unwrap();
+            // // let e57::Color { red, green, blue } = e57_point.color.unwrap();
+            //
+            // let las_point = las::Point {
+            //     x,
+            //     y,
+            //     z,
+            //     ..Default::default()
+            // };
+            //
+            writer.write(las_point).unwrap();
         }
+
+        writer.close().unwrap();
+
+        println!("Saved pointcloud {} in {}", index, las_path);
     }
 
     println!("Finished convertion from e57 to las !");
-
     Ok(())
 }
 
