@@ -4,6 +4,7 @@ pub struct ExtendedPoint {
     pub original_point: OriginalPoint,
     pub rgb_color: Option<las::Color>,
 }
+
 impl From<OriginalPoint> for ExtendedPoint {
     fn from(point: OriginalPoint) -> Self {
         let rgb_color = if let (Some(col), Some(0), Some(intensity), Some(0)) = (

@@ -25,8 +25,6 @@ fn main() -> Result<()> {
     let mut file = E57Reader::from_file(&input_path).context("Failed to open e57 file")?;
     let pointclouds = file.pointclouds();
 
-    dbg!(pointclouds.len());
-
     if !must_save {
         println!("Conversion not performed as must_save is false.");
         return Ok(());
@@ -51,11 +49,6 @@ fn main() -> Result<()> {
             transform.translation.y,
             transform.translation.z,
         );
-        // let first_point = iter.next().unwrap().unwrap();
-        //
-        // let e57_point = e57::Point::from_values(first_point, &pointcloud.prototype).unwrap();
-        //
-        // let x = k
 
         let mut writer = las::Writer::from_path(&las_path, Default::default())?;
 
@@ -101,17 +94,6 @@ fn main() -> Result<()> {
                 ..Default::default()
             };
 
-            // let e57_point = e57::Point::from_values(p.unwrap(), &pointcloud.prototype).unwrap();
-            // let CartesianCoordinate { x, y, z } = e57_point.cartesian.unwrap();
-            // // let e57::Color { red, green, blue } = e57_point.color.unwrap();
-            //
-            // let las_point = las::Point {
-            //     x,
-            //     y,
-            //     z,
-            //     ..Default::default()
-            // };
-            //
             writer.write(las_point).unwrap();
         }
 
