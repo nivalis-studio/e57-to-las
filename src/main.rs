@@ -5,6 +5,7 @@ use e57::E57Reader;
 use extended_point::ExtendedPoint;
 use las::Write;
 use nalgebra::{Point3, Quaternion, UnitQuaternion, Vector3};
+use std::path::Path;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -31,74 +32,37 @@ fn main() -> Result<()> {
     }
 
     for (index, pointcloud) in pointclouds.iter().enumerate() {
-        let iter = file
-            .pointcloud(&pointcloud)
-            .context("Unable to get point cloud iterator")?;
-
-        let file_name = input_path.split(".e57").next().unwrap();
-        let las_path = format!("{}{}{}", &file_name, index, ".las");
-        let transform = pointcloud.transform.clone().unwrap_or(default_transform());
-        let rotation = UnitQuaternion::from_quaternion(Quaternion::new(
-            transform.rotation.w,
-            transform.rotation.x,
-            transform.rotation.y,
-            transform.rotation.z,
-        ));
-        let translation = Vector3::new(
-            transform.translation.x,
-            transform.translation.y,
-            transform.translation.z,
-        );
+        let las_path = construct_las_path(&input_path, index);
+        let transform = get_transform(&pointcloud);
+        let (rotation, translation) = get_rotations_and_translations(&transform);
 
         let mut writer = las::Writer::from_path(&las_path, Default::default())?;
+        let iter = file
+            .pointcloud(pointcloud)
+            .context("Unable to get point cloud iterator")?;
 
         for p in iter {
             let p = p.context("Unable to read next point")?;
-
             let p = e57::Point::from_values(p, &pointcloud.prototype)
                 .context("Failed to convert raw point to simple point")?;
 
-            let xyz = if let Some(ref c) = p.cartesian {
-                if let Some(invalid) = p.cartesian_invalid {
-                    if invalid != 0 {
-                        continue;
-                    }
-                }
-                Point3::new(c.x, c.y, c.z)
-            } else if let Some(ref s) = p.spherical {
-                if let Some(invalid) = p.spherical_invalid {
-                    if invalid != 0 {
-                        continue;
-                    }
-                }
-                let cos_ele = f64::cos(s.elevation);
+            if let Some(xyz) = extract_coordinates(&p) {
+                let xyz = rotation.transform_point(&xyz) + translation;
+                let las_rgb = ExtendedPoint::from(p).rgb_color;
 
-                Point3::new(
-                    s.range * cos_ele * f64::cos(s.azimuth),
-                    s.range * cos_ele * f64::sin(s.azimuth),
-                    s.range * f64::sin(s.elevation),
-                )
-            } else {
-                // No coordinates found, skip point
-                continue;
-            };
+                let las_point = las::Point {
+                    x: xyz.x,
+                    y: xyz.y,
+                    z: xyz.z,
+                    color: las_rgb,
+                    ..Default::default()
+                };
 
-            let xyz = rotation.transform_point(&xyz) + translation;
-            let las_rgb = ExtendedPoint::from(p).rgb_color;
-
-            let las_point = las::Point {
-                x: xyz.x,
-                y: xyz.y,
-                z: xyz.z,
-                color: las_rgb,
-                ..Default::default()
-            };
-
-            writer.write(las_point).unwrap();
+                writer.write(las_point)?;
+            }
         }
 
-        writer.close().unwrap();
-
+        writer.close()?;
         println!("Saved pointcloud {} in {}", index, las_path);
     }
 
@@ -106,8 +70,13 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn default_transform() -> e57::Transform {
-    e57::Transform {
+fn construct_las_path(input_path: &str, index: usize) -> String {
+    let file_name = Path::new(input_path).file_stem().unwrap().to_str().unwrap();
+    format!("{}{}{}", file_name, index, ".las")
+}
+
+fn get_transform(pointcloud: &e57::PointCloud) -> e57::Transform {
+    pointcloud.transform.clone().unwrap_or(e57::Transform {
         rotation: e57::Quaternion {
             w: 1.0,
             x: 0.0,
@@ -119,5 +88,47 @@ fn default_transform() -> e57::Transform {
             y: 0.0,
             z: 0.0,
         },
+    })
+}
+
+fn get_rotations_and_translations(
+    transform: &e57::Transform,
+) -> (UnitQuaternion<f64>, Vector3<f64>) {
+    let rotation = UnitQuaternion::from_quaternion(Quaternion::new(
+        transform.rotation.w,
+        transform.rotation.x,
+        transform.rotation.y,
+        transform.rotation.z,
+    ));
+    let translation = Vector3::new(
+        transform.translation.x,
+        transform.translation.y,
+        transform.translation.z,
+    );
+    (rotation, translation)
+}
+
+fn extract_coordinates(p: &e57::Point) -> Option<Point3<f64>> {
+    if let Some(ref c) = p.cartesian {
+        if let Some(invalid) = p.cartesian_invalid {
+            if invalid != 0 {
+                return None;
+            }
+        }
+        Some(Point3::new(c.x, c.y, c.z))
+    } else if let Some(ref s) = p.spherical {
+        if let Some(invalid) = p.spherical_invalid {
+            if invalid != 0 {
+                return None;
+            }
+        }
+        let cos_ele = f64::cos(s.elevation);
+        Some(Point3::new(
+            s.range * cos_ele * f64::cos(s.azimuth),
+            s.range * cos_ele * f64::sin(s.azimuth),
+            s.range * f64::sin(s.elevation),
+        ))
+    } else {
+        None
     }
 }
