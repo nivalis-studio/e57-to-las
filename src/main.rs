@@ -36,7 +36,7 @@ fn main() -> anyhow::Result<()> {
 
             let file_name = input_path.split(".e57").next().unwrap();
             let las_path = format!("{}{}{}", &file_name, index, ".las");
-            let transform = pointcloud.transform.clone().unwrap();
+            let transform = pointcloud.transform.clone().unwrap_or(default_transform());
             let rotation = UnitQuaternion::from_quaternion(Quaternion::new(
                 transform.rotation.w,
                 transform.rotation.x,
@@ -121,4 +121,20 @@ fn main() -> anyhow::Result<()> {
     println!("Finished convertion from e57 to las !");
 
     Ok(())
+}
+
+fn default_transform() -> e57::Transform {
+    e57::Transform {
+        rotation: e57::Quaternion {
+            w: 1.0,
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        },
+        translation: e57::Translation {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        },
+    }
 }
