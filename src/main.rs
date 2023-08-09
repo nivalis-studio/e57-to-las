@@ -46,12 +46,6 @@ fn main() -> anyhow::Result<()> {
                 transform.translation.y,
                 transform.translation.z,
             );
-            // iter.next();
-            // iter.next();
-            // iter.next();
-            // iter.next();
-            // iter.next();
-            //
             // let first_point = iter.next().unwrap().unwrap();
             //
             // let e57_point = e57::Point::from_values(first_point, &pointcloud.prototype).unwrap();
