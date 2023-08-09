@@ -204,6 +204,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "e57-to-las"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "e57",
+ "las",
+ "nalgebra",
+]
+
+[[package]]
 name = "errno"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -430,17 +441,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d8f595a457b6b8c6cda66a48503e92ee8d19342f905948f29c383200ec9eb1d8"
 dependencies = [
  "xmlparser",
-]
-
-[[package]]
-name = "rust-converter"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "e57",
- "las",
- "nalgebra",
 ]
 
 [[package]]

@@ -1,5 +1,5 @@
 [package]
-name = "rust-converter"
+name = "e57-to-las"
 version = "0.1.0"
 edition = "2021"
 
