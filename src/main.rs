@@ -6,7 +6,7 @@ use extended_point::ExtendedPoint;
 use indicatif::{ProgressBar, ProgressState, ProgressStyle};
 use las::Write;
 use nalgebra::{Point3, Quaternion, UnitQuaternion, Vector3};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -91,19 +91,29 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn construct_las_path(input_path: &str, output_path: &str, index: usize) -> Result<String> {
-    std::fs::create_dir_all(output_path)
-        .context(format!("Couldn't find or create dir {}.", output_path))?;
+fn construct_las_path(input_path: &str, output_path: &str, index: usize) -> Result<PathBuf> {
+    let output_dir_path = Path::new(output_path);
 
-    let file_name = Path::new(input_path)
+    let input_file_name = Path::new(input_path)
         .file_stem()
         .context("Couldn't read file stem.")?
         .to_str()
         .context("Invalid file stem encoding.")?;
 
-    let path = format!("{}{}{}{}", output_path, file_name, index, ".las");
+    let output_sub_dir_path = output_dir_path.join(input_file_name);
 
-    Ok(path)
+    std::fs::create_dir_all(&output_sub_dir_path).context(format!(
+        "Couldn't find or create output dir {}.",
+        output_sub_dir_path
+            .to_str()
+            .context("Invalid output dir path encoding.")?
+    ))?;
+
+    let las_path = output_sub_dir_path.join(format!("{}{}", index, ".las"));
+
+    dbg!(&las_path);
+
+    Ok(las_path)
 }
 
 fn get_transform(pointcloud: &e57::PointCloud) -> e57::Transform {
