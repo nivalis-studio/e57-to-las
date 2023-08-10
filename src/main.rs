@@ -3,6 +3,7 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use e57::E57Reader;
 use extended_point::ExtendedPoint;
+use indicatif::{ProgressBar, ProgressState, ProgressStyle};
 use las::{Read, Write};
 use nalgebra::{Point3, Quaternion, UnitQuaternion, Vector3};
 use std::path::Path;
@@ -51,6 +52,22 @@ fn main() -> Result<()> {
             .pointcloud(pointcloud)
             .context("Unable to get point cloud iterator")?;
 
+        println!("\nSaving pointcloud {} ...", index);
+        let progress_bar = ProgressBar::new(pointcloud.records);
+        progress_bar.set_style(
+            ProgressStyle::with_template(
+                "{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {msg} ({eta})",
+            )
+            .unwrap()
+            .with_key(
+                "eta",
+                |state: &ProgressState, w: &mut dyn std::fmt::Write| {
+                    write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap()
+                },
+            )
+            .progress_chars("=>"),
+        );
+
         for p in iter {
             let p = p.context("Unable to read next point")?;
             let p = e57::Point::from_values(p, &pointcloud.prototype)
@@ -70,10 +87,13 @@ fn main() -> Result<()> {
 
                 writer.write(las_point)?;
             }
+
+            progress_bar.inc(1);
         }
 
         writer.close()?;
-        println!("Saved pointcloud {} in {}", index, las_path);
+
+        progress_bar.finish_with_message("Done");
     }
 
     println!("Finished convertion from e57 to las !");
