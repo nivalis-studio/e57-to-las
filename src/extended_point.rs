@@ -7,7 +7,7 @@ pub struct ExtendedPoint {
 
 impl From<OriginalPoint> for ExtendedPoint {
     fn from(point: OriginalPoint) -> Self {
-        let rgb_color = if let (Some(col), Some(0), Some(intensity), Some(0)) = (
+        let rgb_color = if let (Some(col), None, Some(intensity), None) = (
             &point.color,
             &point.color_invalid,
             &point.intensity,
@@ -40,6 +40,5 @@ fn clamp(value: f32) -> f32 {
 }
 
 fn to_u16(value: f32) -> u16 {
-    // TODO: check if this is correct or if we should do * 255.0
-    (clamp(value) * 65535.0) as u16
+    (clamp(value) * 255.0) as u16
 }
