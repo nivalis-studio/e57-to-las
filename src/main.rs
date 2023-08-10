@@ -3,7 +3,7 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use e57::E57Reader;
 use extended_point::ExtendedPoint;
-use las::Write;
+use las::{Read, Write};
 use nalgebra::{Point3, Quaternion, UnitQuaternion, Vector3};
 use std::path::Path;
 
@@ -13,7 +13,7 @@ struct Args {
     #[arg(short, long)]
     path: String,
 
-    #[arg(short, long, default_value_t = true)]
+    #[arg(short, long, default_value_t = false)]
     should_save: bool,
 }
 
@@ -23,20 +23,30 @@ fn main() -> Result<()> {
     let input_path = args.path;
     let must_save = args.should_save;
 
-    let mut file = E57Reader::from_file(&input_path).context("Failed to open e57 file")?;
-    let pointclouds = file.pointclouds();
-
     if !must_save {
+        let las_reader = las::Reader::from_path(&input_path).unwrap();
+        let header = las_reader.header();
+
+        dbg!(header);
+
         println!("Conversion not performed as must_save is false.");
         return Ok(());
     }
+
+    let mut file = E57Reader::from_file(&input_path).context("Failed to open e57 file")?;
+
+    let pointclouds = file.pointclouds();
 
     for (index, pointcloud) in pointclouds.iter().enumerate() {
         let las_path = construct_las_path(&input_path, index);
         let transform = get_transform(&pointcloud);
         let (rotation, translation) = get_rotations_and_translations(&transform);
 
-        let mut writer = las::Writer::from_path(&las_path, Default::default())?;
+        let mut builder = las::Builder::from((1, 2));
+        builder.point_format.has_color = true;
+        let header = builder.into_header()?;
+
+        let mut writer = las::Writer::from_path(&las_path, header)?;
         let iter = file
             .pointcloud(pointcloud)
             .context("Unable to get point cloud iterator")?;
@@ -48,7 +58,7 @@ fn main() -> Result<()> {
 
             if let Some(xyz) = extract_coordinates(&p) {
                 let xyz = rotation.transform_point(&xyz) + translation;
-                let las_rgb = ExtendedPoint::from(p).rgb_color;
+                let las_rgb = ExtendedPoint::from(p.clone()).rgb_color;
 
                 let las_point = las::Point {
                     x: xyz.x,
