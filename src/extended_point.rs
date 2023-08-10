@@ -2,7 +2,7 @@ use e57::Point as OriginalPoint;
 
 pub struct ExtendedPoint {
     pub original_point: OriginalPoint,
-    pub rgb_color: Option<las::Color>,
+    pub rgb_color: las::Color,
 }
 
 impl From<OriginalPoint> for ExtendedPoint {
@@ -13,13 +13,13 @@ impl From<OriginalPoint> for ExtendedPoint {
             &point.intensity,
             &point.intensity_invalid,
         ) {
-            Some(las::Color {
+            las::Color {
                 red: to_u16(col.red * intensity),
                 green: to_u16(col.green * intensity),
                 blue: to_u16(col.blue * intensity),
-            })
+            }
         } else {
-            None
+            las::Color::default()
         };
 
         ExtendedPoint {
