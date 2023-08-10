@@ -111,8 +111,6 @@ fn construct_las_path(input_path: &str, output_path: &str, index: usize) -> Resu
 
     let las_path = output_sub_dir_path.join(format!("{}{}", index, ".las"));
 
-    dbg!(&las_path);
-
     Ok(las_path)
 }
 
