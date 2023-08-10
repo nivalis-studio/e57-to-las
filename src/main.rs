@@ -33,9 +33,9 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
-    let mut file = E57Reader::from_file(&input_path).context("Failed to open e57 file")?;
+    let mut e57_reader = E57Reader::from_file(&input_path).context("Failed to open e57 file")?;
 
-    let pointclouds = file.pointclouds();
+    let pointclouds = e57_reader.pointclouds();
 
     for (index, pointcloud) in pointclouds.iter().enumerate() {
         let las_path = construct_las_path(&input_path, index);
@@ -47,7 +47,7 @@ fn main() -> Result<()> {
         let header = builder.into_header()?;
 
         let mut writer = las::Writer::from_path(&las_path, header)?;
-        let iter = file
+        let iter = e57_reader
             .pointcloud(pointcloud)
             .context("Unable to get point cloud iterator")?;
 
@@ -64,7 +64,7 @@ fn main() -> Result<()> {
                     x: xyz.x,
                     y: xyz.y,
                     z: xyz.z,
-                    color: las_rgb,
+                    color: Some(las_rgb),
                     ..Default::default()
                 };
 
@@ -82,6 +82,7 @@ fn main() -> Result<()> {
 
 fn construct_las_path(input_path: &str, index: usize) -> String {
     let file_name = Path::new(input_path).file_stem().unwrap().to_str().unwrap();
+
     format!("{}{}{}", file_name, index, ".las")
 }
 
