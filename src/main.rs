@@ -4,7 +4,7 @@ use clap::Parser;
 use e57::E57Reader;
 use extended_point::ExtendedPoint;
 use indicatif::{ProgressBar, ProgressState, ProgressStyle};
-use las::{Read, Write};
+use las::Write;
 use nalgebra::{Point3, Quaternion, UnitQuaternion, Vector3};
 use std::path::Path;
 
@@ -14,32 +14,23 @@ struct Args {
     #[arg(short, long)]
     path: String,
 
-    #[arg(short, long, default_value_t = false)]
-    should_save: bool,
+    #[arg(short, long, default_value_t = String::from("./"))]
+    output: String,
 }
 
 fn main() -> Result<()> {
     let args = Args::parse();
 
     let input_path = args.path;
-    let must_save = args.should_save;
-
-    if !must_save {
-        let las_reader = las::Reader::from_path(&input_path).unwrap();
-        let header = las_reader.header();
-
-        dbg!(header);
-
-        println!("Conversion not performed as must_save is false.");
-        return Ok(());
-    }
+    let output_path = args.output;
 
     let mut e57_reader = E57Reader::from_file(&input_path).context("Failed to open e57 file")?;
 
     let pointclouds = e57_reader.pointclouds();
 
     for (index, pointcloud) in pointclouds.iter().enumerate() {
-        let las_path = construct_las_path(&input_path, index);
+        let las_path = construct_las_path(&input_path, &output_path, index)
+            .context("Couldn't create las path.")?;
         let transform = get_transform(&pointcloud);
         let (rotation, translation) = get_rotations_and_translations(&transform);
 
@@ -100,10 +91,19 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn construct_las_path(input_path: &str, index: usize) -> String {
-    let file_name = Path::new(input_path).file_stem().unwrap().to_str().unwrap();
+fn construct_las_path(input_path: &str, output_path: &str, index: usize) -> Result<String> {
+    std::fs::create_dir_all(output_path)
+        .context(format!("Couldn't find or create dir {}.", output_path))?;
 
-    format!("{}{}{}", file_name, index, ".las")
+    let file_name = Path::new(input_path)
+        .file_stem()
+        .context("Couldn't read file stem.")?
+        .to_str()
+        .context("Invalid file stem encoding.")?;
+
+    let path = format!("{}{}{}{}", output_path, file_name, index, ".las");
+
+    Ok(path)
 }
 
 fn get_transform(pointcloud: &e57::PointCloud) -> e57::Transform {
