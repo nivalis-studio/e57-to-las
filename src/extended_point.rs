@@ -7,16 +7,11 @@ pub struct ExtendedPoint {
 
 impl From<OriginalPoint> for ExtendedPoint {
     fn from(point: OriginalPoint) -> Self {
-        let rgb_color = if let (Some(col), None, Some(intensity), None) = (
-            &point.color,
-            &point.color_invalid,
-            &point.intensity,
-            &point.intensity_invalid,
-        ) {
+        let rgb_color = if let (Some(col), None) = (&point.color, point.color_invalid) {
             las::Color {
-                red: to_u16(col.red * intensity),
-                green: to_u16(col.green * intensity),
-                blue: to_u16(col.blue * intensity),
+                red: to_u16(col.red),
+                green: to_u16(col.green),
+                blue: to_u16(col.blue),
             }
         } else {
             las::Color::default()
@@ -29,7 +24,7 @@ impl From<OriginalPoint> for ExtendedPoint {
     }
 }
 
-fn clamp(value: f32) -> f32 {
+pub fn clamp(value: f32) -> f32 {
     if value < 0.0 {
         0.0
     } else if value > 1.0 {

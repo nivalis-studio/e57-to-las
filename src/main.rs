@@ -2,7 +2,7 @@ mod extended_point;
 use anyhow::{Context, Result};
 use clap::Parser;
 use e57::E57Reader;
-use extended_point::ExtendedPoint;
+use extended_point::{clamp, ExtendedPoint};
 use indicatif::{ProgressBar, ProgressState, ProgressStyle};
 use las::Write;
 use nalgebra::{Point3, Quaternion, UnitQuaternion, Vector3};
@@ -76,11 +76,13 @@ fn main() -> Result<()> {
             if let Some(xyz) = extract_coordinates(&p) {
                 let xyz = rotation.transform_point(&xyz) + translation;
                 let las_rgb = ExtendedPoint::from(p.clone()).rgb_color;
+                let las_intensity = get_intensity(p.intensity, p.intensity_invalid);
 
                 let las_point = las::Point {
                     x: xyz.x,
                     y: xyz.y,
                     z: xyz.z,
+                    intensity: las_intensity,
                     color: Some(las_rgb),
                     ..Default::default()
                 };
@@ -183,4 +185,13 @@ fn extract_coordinates(p: &e57::Point) -> Option<Point3<f64>> {
     } else {
         None
     }
+}
+
+fn get_intensity(intensity: Option<f32>, intensity_invalid: Option<u8>) -> u16 {
+    // A value of zero means the intensity is valid, 1 means invalid.
+    if intensity_invalid.unwrap_or(0) == 1 {
+        return 0;
+    }
+
+    return (clamp(intensity.unwrap_or(0.0)) * 65535.0) as u16;
 }
