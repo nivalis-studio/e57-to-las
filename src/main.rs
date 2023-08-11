@@ -16,6 +16,9 @@ struct Args {
 
     #[arg(short, long, default_value_t = String::from("./"))]
     output: String,
+
+    #[arg(short = 'P', long, default_value_t = false)]
+    progress: bool,
 }
 
 fn main() -> Result<()> {
@@ -23,6 +26,7 @@ fn main() -> Result<()> {
 
     let input_path = args.path;
     let output_path = args.output;
+    let has_progress = args.progress;
 
     let mut e57_reader = E57Reader::from_file(&input_path).context("Failed to open e57 file")?;
 
@@ -44,20 +48,25 @@ fn main() -> Result<()> {
             .context("Unable to get point cloud iterator")?;
 
         println!("\nSaving pointcloud {} ...", index);
-        let progress_bar = ProgressBar::new(pointcloud.records);
-        progress_bar.set_style(
-            ProgressStyle::with_template(
-                "{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {msg} ({eta})",
-            )
-            .unwrap()
-            .with_key(
-                "eta",
-                |state: &ProgressState, w: &mut dyn std::fmt::Write| {
-                    write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap()
-                },
-            )
-            .progress_chars("=>"),
-        );
+
+        let mut progress_bar = ProgressBar::hidden();
+
+        if has_progress {
+            progress_bar = ProgressBar::new(pointcloud.records);
+            progress_bar.set_style(
+                ProgressStyle::with_template(
+                    "{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {msg} ({eta})",
+                )
+                .unwrap()
+                .with_key(
+                    "eta",
+                    |state: &ProgressState, w: &mut dyn std::fmt::Write| {
+                        write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap()
+                    },
+                )
+                .progress_chars("=>"),
+            );
+        }
 
         for p in iter {
             let p = p.context("Unable to read next point")?;
@@ -79,12 +88,16 @@ fn main() -> Result<()> {
                 writer.write(las_point)?;
             }
 
-            progress_bar.inc(1);
+            if has_progress {
+                progress_bar.inc(1);
+            }
         }
 
         writer.close()?;
 
-        progress_bar.finish_with_message("Done");
+        if has_progress {
+            progress_bar.finish_with_message("Done");
+        }
     }
 
     println!("Finished convertion from e57 to las !");
