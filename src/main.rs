@@ -1,4 +1,5 @@
 mod extended_point;
+extern crate rayon;
 use anyhow::{Context, Result};
 use clap::Parser;
 use e57::E57Reader;
@@ -6,6 +7,7 @@ use extended_point::{clamp, ExtendedPoint};
 use indicatif::{ProgressBar, ProgressState, ProgressStyle};
 use las::Write;
 use nalgebra::{Point3, Quaternion, UnitQuaternion, Vector3};
+use rayon::prelude::*;
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
@@ -29,35 +31,63 @@ fn main() -> Result<()> {
     let output_path = args.output;
     let has_progress = args.progress;
 
-    let mut e57_reader = E57Reader::from_file(&input_path).context("Failed to open e57 file")?;
+    let e57_reader = E57Reader::from_file(&input_path).context("Failed to open e57 file")?;
 
     let pointclouds = e57_reader.pointclouds();
 
-    for (index, pointcloud) in pointclouds.iter().enumerate() {
-        let las_path = construct_las_path(&input_path, &output_path, index)
-            .context("Couldn't create las path.")?;
-        let transform = get_transform(&pointcloud);
-        let (rotation, translation) = get_rotations_and_translations(&transform);
+    pointclouds
+        .par_iter()
+        .enumerate()
+        .for_each(|(index, pointcloud)| -> () {
+            let las_path = match construct_las_path(&input_path, &output_path, index)
+                .context("Couldn't create las path.")
+            {
+                Ok(p) => p,
+                Err(_e) => return (),
+            };
 
-        let mut builder = las::Builder::from((1, 4));
-        builder.point_format.has_color = true;
-        builder.generating_software = String::from("e57_to_las");
-        builder.guid = Uuid::parse_str(&pointcloud.guid.clone()).context("Invalid guid")?;
+            let transform = get_transform(&pointcloud);
+            let (rotation, translation) = get_rotations_and_translations(&transform);
 
-        let header = builder.into_header()?;
+            let mut builder = las::Builder::from((1, 4));
+            builder.point_format.has_color = true;
+            builder.generating_software = String::from("e57_to_las");
+            builder.guid = match Uuid::parse_str(&pointcloud.guid.clone()).context("Invalid guid") {
+                Ok(g) => g,
+                Err(_e) => return (),
+            };
 
-        let mut writer = las::Writer::from_path(&las_path, header)?;
-        let iter = e57_reader
-            .pointcloud(pointcloud)
-            .context("Unable to get point cloud iterator")?;
+            let header = match builder.into_header() {
+                Ok(h) => h,
+                Err(_e) => return (),
+            };
 
-        println!("\nSaving pointcloud {} ...", index);
+            let mut writer = match las::Writer::from_path(&las_path, header) {
+                Ok(w) => w,
+                Err(_e) => return (),
+            };
 
-        let mut progress_bar = ProgressBar::hidden();
+            let mut e57_reader =
+                match E57Reader::from_file(&input_path).context("Failed to open e57 file") {
+                    Ok(r) => r,
+                    Err(_e) => return (),
+                };
 
-        if has_progress {
-            progress_bar = ProgressBar::new(pointcloud.records);
-            progress_bar.set_style(
+            let iter = match e57_reader
+                .pointcloud(&pointcloud)
+                .context("Unable to get point cloud iterator")
+            {
+                Ok(i) => i,
+                Err(_e) => return (),
+            };
+
+            println!("\nSaving pointcloud {} ...", index);
+
+            let mut progress_bar = ProgressBar::hidden();
+
+            if has_progress {
+                progress_bar = ProgressBar::new(pointcloud.records);
+                progress_bar.set_style(
                 ProgressStyle::with_template(
                     "{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {msg} ({eta})",
                 )
@@ -70,41 +100,54 @@ fn main() -> Result<()> {
                 )
                 .progress_chars("=>"),
             );
-        }
+            }
 
-        for p in iter {
-            let p = p.context("Unable to read next point")?;
-            let p = e57::Point::from_values(p, &pointcloud.prototype)
-                .context("Failed to convert raw point to simple point")?;
-
-            if let Some(xyz) = extract_coordinates(&p) {
-                let xyz = rotation.transform_point(&xyz) + translation;
-                let las_rgb = ExtendedPoint::from(p.clone()).rgb_color;
-                let las_intensity = get_intensity(p.intensity, p.intensity_invalid);
-
-                let las_point = las::Point {
-                    x: xyz.x,
-                    y: xyz.y,
-                    z: xyz.z,
-                    intensity: las_intensity,
-                    color: Some(las_rgb),
-                    ..Default::default()
+            for p in iter {
+                let p = match p.context("Unable to read next point") {
+                    Ok(p) => p,
+                    Err(_e) => return (),
+                };
+                let p = match e57::Point::from_values(p, &pointcloud.prototype)
+                    .context("Failed to convert raw point to simple point")
+                {
+                    Ok(p) => p,
+                    Err(_e) => return (),
                 };
 
-                writer.write(las_point)?;
+                if let Some(xyz) = extract_coordinates(&p) {
+                    let xyz = rotation.transform_point(&xyz) + translation;
+                    let las_rgb = ExtendedPoint::from(p.clone()).rgb_color;
+                    let las_intensity = get_intensity(p.intensity, p.intensity_invalid);
+
+                    let las_point = las::Point {
+                        x: xyz.x,
+                        y: xyz.y,
+                        z: xyz.z,
+                        intensity: las_intensity,
+                        color: Some(las_rgb),
+                        ..Default::default()
+                    };
+
+                    match writer.write(las_point) {
+                        Ok(_) => (),
+                        Err(_e) => return (),
+                    };
+                }
+
+                if has_progress {
+                    progress_bar.inc(1);
+                }
             }
+
+            match writer.close() {
+                Ok(_) => (),
+                Err(_e) => return (),
+            };
 
             if has_progress {
-                progress_bar.inc(1);
+                progress_bar.finish_with_message("Done");
             }
-        }
-
-        writer.close()?;
-
-        if has_progress {
-            progress_bar.finish_with_message("Done");
-        }
-    }
+        });
 
     println!("Finished convertion from e57 to las !");
     Ok(())
