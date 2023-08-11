@@ -226,6 +226,7 @@ dependencies = [
  "indicatif",
  "las",
  "nalgebra",
+ "uuid",
 ]
 
 [[package]]
