@@ -39,7 +39,7 @@ fn main() -> Result<()> {
         let transform = get_transform(&pointcloud);
         let (rotation, translation) = get_rotations_and_translations(&transform);
 
-        let mut builder = las::Builder::from((1, 2));
+        let mut builder = las::Builder::from((1, 4));
         builder.point_format.has_color = true;
         builder.generating_software = String::from("e57_to_las");
         builder.guid = Uuid::parse_str(&pointcloud.guid.clone()).context("Invalid guid")?;
