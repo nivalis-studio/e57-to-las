@@ -7,6 +7,7 @@ use indicatif::{ProgressBar, ProgressState, ProgressStyle};
 use las::Write;
 use nalgebra::{Point3, Quaternion, UnitQuaternion, Vector3};
 use std::path::{Path, PathBuf};
+use uuid::Uuid;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -40,6 +41,9 @@ fn main() -> Result<()> {
 
         let mut builder = las::Builder::from((1, 2));
         builder.point_format.has_color = true;
+        builder.generating_software = String::from("e57_to_las");
+        builder.guid = Uuid::parse_str(&pointcloud.guid.clone()).context("Invalid guid")?;
+
         let header = builder.into_header()?;
 
         let mut writer = las::Writer::from_path(&las_path, header)?;
