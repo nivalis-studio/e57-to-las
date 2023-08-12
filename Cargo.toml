@@ -9,7 +9,7 @@ edition = "2021"
 anyhow = "1.0.72"
 clap = { version = "4.3.21", features = ["derive"] }
 e57 = "0.5.1"
-indicatif = "0.17.6"
+indicatif = { version = "0.17.6", features = ["rayon"] }
 las = "0.8.1"
 nalgebra = "0.32.3"
 rayon = "1.7.0"
