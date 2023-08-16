@@ -1,6 +1,11 @@
 [package]
 name = "e57-to-las"
-version = "0.1.0"
+authors = ["pnodet <paul.nodet@gmail.com>", "pnwa <pnwa@icloud.com>"]
+description = "Convert E57 point cloud files to LAS"
+license = "MIT"
+homepage = "https://github.com/wildweb-io/e57-to-las-rs"
+repository = "https://github.com/wildweb-io/e57-to-las-rs"
+version = "0.1.1"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
