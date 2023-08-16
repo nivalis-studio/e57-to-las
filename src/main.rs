@@ -9,10 +9,23 @@ use indicatif::{ProgressBar, ProgressState, ProgressStyle};
 use las::Write;
 use nalgebra::Point3;
 use rayon::prelude::*;
-use std::sync::Mutex;
+use serde::Serialize;
+use std::{
+    fs::File,
+    io::{BufWriter, Write as IoWrite},
+    path::Path,
+    sync::Mutex,
+};
 use uuid::Uuid;
 
 use crate::utils::*;
+
+#[derive(Serialize)]
+struct StationPoint {
+    x: f64,
+    y: f64,
+    z: f64,
+}
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -31,7 +44,7 @@ fn main() -> Result<()> {
     let args = Args::parse();
 
     let input_path = args.path;
-    let output_path = args.output;
+    let output_path = Path::new(&args.output);
     let has_progress = args.progress;
 
     let e57_reader = E57Reader::from_file(&input_path).context("Failed to open e57 file")?;
@@ -39,6 +52,8 @@ fn main() -> Result<()> {
     let pointclouds = e57_reader.pointclouds();
 
     let mut progress_bar = ProgressBar::hidden();
+
+    let stations: Mutex<Vec<StationPoint>> = Mutex::new(Vec::new());
 
     if has_progress {
         let total_records: u64 = pointclouds.iter().map(|pc| pc.records).sum();
@@ -128,7 +143,32 @@ fn main() -> Result<()> {
 
             println!("Saving pointcloud {} ...", index);
 
-            pointcloud_reader.for_each(|p| {
+            let points: Vec<_> = pointcloud_reader.collect();
+            let count = points.len() as f64;
+
+            let sum = points.iter().fold((0.0, 0.0, 0.0), |acc, point| {
+                let point = match point {
+                    Ok(p) => p,
+                    Err(e) => {
+                        eprintln!("Error encountered: {}", e);
+                        return acc;
+                    }
+                };
+
+                (
+                    acc.0 + point.cartesian.x,
+                    acc.1 + point.cartesian.y,
+                    acc.2 + point.cartesian.z,
+                )
+            });
+
+            stations.lock().unwrap().push(StationPoint {
+                x: sum.0 / count,
+                y: sum.1 / count,
+                z: sum.2 / count,
+            });
+
+            points.par_iter().for_each(|p| {
                 let point = match p {
                     Ok(p) => p,
                     Err(e) => {
@@ -172,6 +212,11 @@ fn main() -> Result<()> {
                 }
             };
         });
+
+    let stations_file = File::create(output_path.join("stations.json"))?;
+    let mut writer = BufWriter::new(stations_file);
+    serde_json::to_writer(&mut writer, &stations)?;
+    writer.flush()?;
 
     progress_bar.finish_with_message("Finished convertion from e57 to las !");
     Ok(())
