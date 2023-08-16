@@ -31,22 +31,6 @@ pub fn construct_las_path(input_path: &str, output_path: &str, index: usize) -> 
     Ok(las_path)
 }
 
-pub fn get_transform(pointcloud: &e57::PointCloud) -> e57::Transform {
-    pointcloud.transform.clone().unwrap_or(e57::Transform {
-        rotation: e57::Quaternion {
-            w: 1.0,
-            x: 0.0,
-            y: 0.0,
-            z: 0.0,
-        },
-        translation: e57::Translation {
-            x: 0.0,
-            y: 0.0,
-            z: 0.0,
-        },
-    })
-}
-
 pub fn get_rotations_and_translations(
     transform: &e57::Transform,
 ) -> (UnitQuaternion<f64>, Vector3<f64>) {
@@ -65,35 +49,31 @@ pub fn get_rotations_and_translations(
 }
 
 pub fn extract_coordinates(p: &e57::Point) -> Option<Point3<f64>> {
-    if let Some(ref c) = p.cartesian {
-        if let Some(invalid) = p.cartesian_invalid {
-            if invalid != 0 {
-                return None;
-            }
-        }
-        Some(Point3::new(c.x, c.y, c.z))
-    } else if let Some(ref s) = p.spherical {
-        if let Some(invalid) = p.spherical_invalid {
-            if invalid != 0 {
-                return None;
-            }
-        }
-        let cos_ele = f64::cos(s.elevation);
-        Some(Point3::new(
-            s.range * cos_ele * f64::cos(s.azimuth),
-            s.range * cos_ele * f64::sin(s.azimuth),
-            s.range * f64::sin(s.elevation),
-        ))
-    } else {
-        None
+    if p.cartesian_invalid == 2 && p.spherical_invalid == 2 {
+        return None;
     }
+
+    if p.cartesian_invalid == 0 {
+        return Some(Point3::new(p.cartesian.x, p.cartesian.y, p.cartesian.z));
+    }
+
+    if p.spherical_invalid == 0 {
+        let cos_ele = f64::cos(p.spherical.elevation);
+        return Some(Point3::new(
+            p.spherical.range * cos_ele * f64::cos(p.spherical.azimuth),
+            p.spherical.range * cos_ele * f64::sin(p.spherical.azimuth),
+            p.spherical.range * f64::sin(p.spherical.elevation),
+        ));
+    }
+
+    return None;
 }
 
-pub fn get_intensity(intensity: Option<f32>, intensity_invalid: Option<u8>) -> u16 {
+pub fn get_intensity(intensity: f32, intensity_invalid: u8) -> u16 {
     // A value of zero means the intensity is valid, 1 means invalid.
-    if intensity_invalid.unwrap_or(0) == 1 {
+    if intensity_invalid == 1 {
         return 0;
     }
 
-    return (intensity.unwrap_or(0.0).clamp(0.0, 1.0) * 65535.0) as u16;
+    return (intensity.clamp(0.0, 1.0) * 65535.0) as u16;
 }

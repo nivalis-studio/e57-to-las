@@ -71,7 +71,10 @@ fn main() -> Result<()> {
                 }
             };
 
-            let transform = get_transform(&pointcloud);
+            let transform = pointcloud
+                .clone()
+                .transform
+                .unwrap_or(e57::Transform::default());
             let (rotation, translation) = get_rotations_and_translations(&transform);
 
             let mut builder = las::Builder::from((1, 4));
@@ -111,7 +114,7 @@ fn main() -> Result<()> {
                 };
 
             let iter = match e57_reader
-                .pointcloud(&pointcloud)
+                .pointcloud_simple(&pointcloud)
                 .context("Unable to get point cloud iterator")
             {
                 Ok(i) => i,
@@ -126,16 +129,7 @@ fn main() -> Result<()> {
             let data: Vec<_> = iter.collect();
 
             data.par_iter().for_each(|p| {
-                let value = match p {
-                    Ok(value) => value,
-                    Err(e) => {
-                        eprintln!("Error encountered: {}", e);
-                        return ();
-                    }
-                };
-                let p = match e57::Point::from_values(value.clone(), &pointcloud.prototype)
-                    .context("Failed to convert raw point to simple point")
-                {
+                let point = match p {
                     Ok(p) => p,
                     Err(e) => {
                         eprintln!("Error encountered: {}", e);
@@ -143,10 +137,10 @@ fn main() -> Result<()> {
                     }
                 };
 
-                if let Some(xyz) = extract_coordinates(&p) {
+                if let Some(xyz) = extract_coordinates(&point) {
                     let xyz = rotation.transform_point(&xyz) + translation;
-                    let las_rgb = ExtendedPoint::from(p.clone()).rgb_color;
-                    let las_intensity = get_intensity(p.intensity, p.intensity_invalid);
+                    let las_rgb = ExtendedPoint::from(point.clone()).rgb_color;
+                    let las_intensity = get_intensity(point.intensity, point.intensity_invalid);
 
                     let las_point = las::Point {
                         x: xyz.x,

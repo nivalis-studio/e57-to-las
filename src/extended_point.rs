@@ -9,11 +9,11 @@ pub struct ExtendedPoint {
 
 impl From<OriginalPoint> for ExtendedPoint {
     fn from(point: OriginalPoint) -> Self {
-        let rgb_color = if let (Some(col), None) = (&point.color, point.color_invalid) {
+        let rgb_color = if point.color_invalid == 0 {
             las::Color {
-                red: to_u16(col.red),
-                green: to_u16(col.green),
-                blue: to_u16(col.blue),
+                red: to_u16(point.color.red),
+                green: to_u16(point.color.green),
+                blue: to_u16(point.color.blue),
             }
         } else {
             las::Color::default()
