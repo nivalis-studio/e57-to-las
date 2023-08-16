@@ -7,6 +7,7 @@ use e57::E57Reader;
 use extended_point::ExtendedPoint;
 use indicatif::{ProgressBar, ProgressState, ProgressStyle};
 use las::Write;
+use nalgebra::Point3;
 use rayon::prelude::*;
 use std::sync::Mutex;
 use uuid::Uuid;
@@ -113,7 +114,7 @@ fn main() -> Result<()> {
                     }
                 };
 
-            let iter = match e57_reader
+            let mut pointcloud_reader = match e57_reader
                 .pointcloud_simple(&pointcloud)
                 .context("Unable to get point cloud iterator")
             {
@@ -123,12 +124,11 @@ fn main() -> Result<()> {
                     return ();
                 }
             };
+            pointcloud_reader.skip_invalid(true);
 
             println!("Saving pointcloud {} ...", index);
 
-            let data: Vec<_> = iter.collect();
-
-            data.par_iter().for_each(|p| {
+            pointcloud_reader.for_each(|p| {
                 let point = match p {
                     Ok(p) => p,
                     Err(e) => {
@@ -137,26 +137,28 @@ fn main() -> Result<()> {
                     }
                 };
 
-                if let Some(xyz) = extract_coordinates(&point) {
-                    let xyz = rotation.transform_point(&xyz) + translation;
-                    let las_rgb = ExtendedPoint::from(point.clone()).rgb_color;
-                    let las_intensity = get_intensity(point.intensity, point.intensity_invalid);
+                let xyz = rotation.transform_point(&Point3::new(
+                    point.cartesian.x,
+                    point.cartesian.y,
+                    point.cartesian.z,
+                )) + translation;
+                let las_rgb = ExtendedPoint::from(point.clone()).rgb_color;
+                let las_intensity = get_intensity(point.intensity, point.intensity_invalid);
 
-                    let las_point = las::Point {
-                        x: xyz.x,
-                        y: xyz.y,
-                        z: xyz.z,
-                        intensity: las_intensity,
-                        color: Some(las_rgb),
-                        ..Default::default()
-                    };
+                let las_point = las::Point {
+                    x: xyz.x,
+                    y: xyz.y,
+                    z: xyz.z,
+                    intensity: las_intensity,
+                    color: Some(las_rgb),
+                    ..Default::default()
+                };
 
-                    let mut writer_guard = writer.lock().unwrap();
-                    match writer_guard.write(las_point) {
-                        Ok(_) => (),
-                        Err(_e) => return,
-                    };
-                }
+                let mut writer_guard = writer.lock().unwrap();
+                match writer_guard.write(las_point) {
+                    Ok(_) => (),
+                    Err(_e) => return,
+                };
 
                 progress_bar.inc(1);
             });

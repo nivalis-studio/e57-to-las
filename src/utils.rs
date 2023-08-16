@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use nalgebra::{Point3, Quaternion, UnitQuaternion, Vector3};
+use nalgebra::{Quaternion, UnitQuaternion, Vector3};
 use std::path::{Path, PathBuf};
 
 pub fn to_u16(value: f32) -> u16 {
@@ -46,27 +46,6 @@ pub fn get_rotations_and_translations(
         transform.translation.z,
     );
     (rotation, translation)
-}
-
-pub fn extract_coordinates(p: &e57::Point) -> Option<Point3<f64>> {
-    if p.cartesian_invalid == 2 && p.spherical_invalid == 2 {
-        return None;
-    }
-
-    if p.cartesian_invalid == 0 {
-        return Some(Point3::new(p.cartesian.x, p.cartesian.y, p.cartesian.z));
-    }
-
-    if p.spherical_invalid == 0 {
-        let cos_ele = f64::cos(p.spherical.elevation);
-        return Some(Point3::new(
-            p.spherical.range * cos_ele * f64::cos(p.spherical.azimuth),
-            p.spherical.range * cos_ele * f64::sin(p.spherical.azimuth),
-            p.spherical.range * f64::sin(p.spherical.elevation),
-        ));
-    }
-
-    return None;
 }
 
 pub fn get_intensity(intensity: f32, intensity_invalid: u8) -> u16 {
