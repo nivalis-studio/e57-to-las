@@ -1,5 +1,7 @@
 use e57::Point as OriginalPoint;
 
+use crate::utils::to_u16;
+
 pub struct ExtendedPoint {
     pub original_point: OriginalPoint,
     pub rgb_color: las::Color,
@@ -22,18 +24,4 @@ impl From<OriginalPoint> for ExtendedPoint {
             rgb_color,
         }
     }
-}
-
-pub fn clamp(value: f32) -> f32 {
-    if value < 0.0 {
-        0.0
-    } else if value > 1.0 {
-        1.0
-    } else {
-        value
-    }
-}
-
-fn to_u16(value: f32) -> u16 {
-    (clamp(value) * 255.0) as u16
 }
