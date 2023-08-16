@@ -8,14 +8,8 @@ pub fn to_u16(value: f32) -> u16 {
 
 // maybe group those function in extend point struct at some point ?
 // (2 extended points ?)
-pub fn construct_las_path(input_path: &str, output_path: &Path, index: usize) -> Result<PathBuf> {
-    let input_file_name = Path::new(input_path)
-        .file_stem()
-        .context("Couldn't read file stem.")?
-        .to_str()
-        .context("Invalid file stem encoding.")?;
-
-    let output_sub_dir_path = output_path.join(input_file_name);
+pub fn construct_las_path(output_path: &Path, index: usize) -> Result<PathBuf> {
+    let output_sub_dir_path = output_path.join("las");
 
     std::fs::create_dir_all(&output_sub_dir_path).context(format!(
         "Couldn't find or create output dir {}.",

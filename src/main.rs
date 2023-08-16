@@ -77,7 +77,7 @@ fn main() -> Result<()> {
         .par_iter()
         .enumerate()
         .for_each(|(index, pointcloud)| -> () {
-            let las_path = match construct_las_path(&input_path, &output_path, index)
+            let las_path = match construct_las_path(&output_path, index)
                 .context("Couldn't create las path.")
             {
                 Ok(p) => p,
