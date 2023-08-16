@@ -112,13 +112,13 @@ fn main() -> Result<()> {
                 }
             };
 
-            let writer = Mutex::new(match las::Writer::from_path(&las_path, header) {
+            let mut writer = match las::Writer::from_path(&las_path, header) {
                 Ok(w) => w,
                 Err(e) => {
                     eprintln!("Error encountered: {}", e);
                     return ();
                 }
-            });
+            };
 
             let mut e57_reader =
                 match E57Reader::from_file(&input_path).context("Failed to open e57 file") {
@@ -142,33 +142,10 @@ fn main() -> Result<()> {
             pointcloud_reader.skip_invalid(true);
 
             println!("Saving pointcloud {} ...", index);
+            let mut count = 0.0;
+            let mut sum_coordinate = (0.0, 0.0, 0.0);
 
-            let points: Vec<_> = pointcloud_reader.collect();
-            let count = points.len() as f64;
-
-            let sum = points.iter().fold((0.0, 0.0, 0.0), |acc, point| {
-                let point = match point {
-                    Ok(p) => p,
-                    Err(e) => {
-                        eprintln!("Error encountered: {}", e);
-                        return acc;
-                    }
-                };
-
-                (
-                    acc.0 + point.cartesian.x,
-                    acc.1 + point.cartesian.y,
-                    acc.2 + point.cartesian.z,
-                )
-            });
-
-            stations.lock().unwrap().push(StationPoint {
-                x: sum.0 / count,
-                y: sum.1 / count,
-                z: sum.2 / count,
-            });
-
-            points.par_iter().for_each(|p| {
+            pointcloud_reader.for_each(|p| {
                 let point = match p {
                     Ok(p) => p,
                     Err(e) => {
@@ -176,6 +153,12 @@ fn main() -> Result<()> {
                         return ();
                     }
                 };
+                count += 1.0;
+                sum_coordinate = (
+                    sum_coordinate.0 + point.cartesian.x,
+                    sum_coordinate.1 + point.cartesian.y,
+                    sum_coordinate.2 + point.cartesian.z,
+                );
 
                 let xyz = rotation.transform_point(&Point3::new(
                     point.cartesian.x,
@@ -194,8 +177,7 @@ fn main() -> Result<()> {
                     ..Default::default()
                 };
 
-                let mut writer_guard = writer.lock().unwrap();
-                match writer_guard.write(las_point) {
+                match writer.write(las_point) {
                     Ok(_) => (),
                     Err(_e) => return,
                 };
@@ -203,14 +185,19 @@ fn main() -> Result<()> {
                 progress_bar.inc(1);
             });
 
-            let mut writer_guard = writer.lock().unwrap();
-            match writer_guard.close() {
+            match writer.close() {
                 Ok(_) => (),
                 Err(e) => {
                     eprintln!("Error encountered: {}", e);
                     return ();
                 }
             };
+
+            stations.lock().unwrap().push(StationPoint {
+                x: sum_coordinate.0 / count,
+                y: sum_coordinate.1 / count,
+                z: sum_coordinate.2 / count,
+            });
         });
 
     let stations_file = File::create(output_path.join("stations.json"))?;
