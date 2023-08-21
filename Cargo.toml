@@ -5,7 +5,7 @@ description = "Convert E57 point cloud files to LAS"
 license = "MIT"
 homepage = "https://github.com/wildweb-io/e57-to-las-rs"
 repository = "https://github.com/wildweb-io/e57-to-las-rs"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
