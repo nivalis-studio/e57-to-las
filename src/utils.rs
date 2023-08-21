@@ -1,5 +1,4 @@
 use anyhow::{Context, Result};
-use nalgebra::{Quaternion, UnitQuaternion, Vector3};
 use std::path::{Path, PathBuf};
 
 pub fn to_u16(value: f32) -> u16 {
@@ -21,23 +20,6 @@ pub fn construct_las_path(output_path: &Path, index: usize) -> Result<PathBuf> {
     let las_path = output_sub_dir_path.join(format!("{}{}", index, ".las"));
 
     Ok(las_path)
-}
-
-pub fn get_rotations_and_translations(
-    transform: &e57::Transform,
-) -> (UnitQuaternion<f64>, Vector3<f64>) {
-    let rotation = UnitQuaternion::from_quaternion(Quaternion::new(
-        transform.rotation.w,
-        transform.rotation.x,
-        transform.rotation.y,
-        transform.rotation.z,
-    ));
-    let translation = Vector3::new(
-        transform.translation.x,
-        transform.translation.y,
-        transform.translation.z,
-    );
-    (rotation, translation)
 }
 
 pub fn get_intensity(intensity: f32, intensity_invalid: u8) -> u16 {

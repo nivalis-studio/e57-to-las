@@ -7,7 +7,6 @@ use e57::E57Reader;
 use extended_point::ExtendedPoint;
 use indicatif::{ProgressBar, ProgressState, ProgressStyle};
 use las::Write;
-use nalgebra::Point3;
 use rayon::prelude::*;
 use serde::Serialize;
 use std::{
@@ -99,12 +98,6 @@ fn main() -> Result<()> {
                 }
             };
 
-            let transform = pointcloud
-                .clone()
-                .transform
-                .unwrap_or(e57::Transform::default());
-            let (rotation, translation) = get_rotations_and_translations(&transform);
-
             let mut builder = las::Builder::from((1, 4));
             builder.point_format.has_color = true;
             builder.generating_software = String::from("e57_to_las");
@@ -172,18 +165,13 @@ fn main() -> Result<()> {
                     sum_coordinate.2 + point.cartesian.z,
                 );
 
-                let xyz = rotation.transform_point(&Point3::new(
-                    point.cartesian.x,
-                    point.cartesian.y,
-                    point.cartesian.z,
-                )) + translation;
                 let las_rgb = ExtendedPoint::from(point.clone()).rgb_color;
                 let las_intensity = get_intensity(point.intensity, point.intensity_invalid);
 
                 let las_point = las::Point {
-                    x: xyz.x,
-                    y: xyz.y,
-                    z: xyz.z,
+                    x: point.cartesian.x,
+                    y: point.cartesian.y,
+                    z: point.cartesian.z,
                     intensity: las_intensity,
                     color: Some(las_rgb),
                     ..Default::default()
