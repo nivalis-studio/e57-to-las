@@ -1,10 +1,9 @@
-mod extended_point;
+mod colors;
 mod utils;
 extern crate rayon;
 use anyhow::{Context, Result};
 use clap::Parser;
 use e57::E57Reader;
-use extended_point::ExtendedPoint;
 use indicatif::{ProgressBar, ProgressState, ProgressStyle};
 use las::Write;
 use rayon::prelude::*;
@@ -17,6 +16,7 @@ use std::{
 };
 use uuid::Uuid;
 
+use crate::colors::*;
 use crate::utils::*;
 
 #[derive(Serialize)]
@@ -141,6 +141,9 @@ fn main() -> Result<()> {
             let mut count = 0.0;
             let mut sum_coordinate = (0.0, 0.0, 0.0);
 
+            let color_limits = get_colors_limit(pointcloud.color_limits.clone());
+            let intensity_limits = get_intensity_limits(pointcloud.intensity_limits.clone());
+
             pointcloud_reader.for_each(|p| {
                 let point = match p {
                     Ok(p) => p,
@@ -156,17 +159,21 @@ fn main() -> Result<()> {
                     sum_coordinate.2 + point.cartesian.z,
                 );
 
-                let las_rgb = ExtendedPoint::from(point.clone()).rgb_color;
-                let las_intensity = get_intensity(point.intensity, point.intensity_invalid);
+                let las_colors = get_las_colors(&point.color, point.color_invalid, color_limits);
+
+                let las_intensity =
+                    get_las_intensity(point.intensity, point.intensity_invalid, intensity_limits);
 
                 let las_point = las::Point {
                     x: point.cartesian.x,
                     y: point.cartesian.y,
                     z: point.cartesian.z,
                     intensity: las_intensity,
-                    color: Some(las_rgb),
+                    color: Some(las_colors),
                     ..Default::default()
                 };
+
+                // dbg!(&las_point);
 
                 match writer.write(las_point) {
                     Ok(_) => (),
