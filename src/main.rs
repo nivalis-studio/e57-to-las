@@ -96,10 +96,10 @@ fn main() -> Result<()> {
             let mut builder = las::Builder::from((1, 4));
             builder.point_format.has_color = true;
             builder.generating_software = String::from("e57_to_las");
-            builder.guid = match Uuid::parse_str(&pointcloud.guid.clone()).context("Invalid guid") {
+            builder.guid = match Uuid::parse_str(&pointcloud.guid.clone().replace("_", "-")) {
                 Ok(g) => g,
                 Err(e) => {
-                    eprintln!("Error encountered: {}", e);
+                    eprintln!("Invalid guid: {}", e);
                     return ();
                 }
             };
