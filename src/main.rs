@@ -49,6 +49,18 @@ fn main() -> Result<()> {
 
     let e57_reader = E57Reader::from_file(&input_path).context("Failed to open e57 file")?;
 
+    if e57_reader.format_name() != "ASTM E57 3D Imaging Data File" {
+        println!("This file is currently not supported.");
+        return Ok(());
+    }
+
+    if true {
+        // Write the xml header in header.xml
+        let mut header_file = BufWriter::new(File::create("header.xml").unwrap());
+        header_file.write_all(e57_reader.xml().as_bytes()).unwrap();
+        header_file.flush().unwrap();
+    }
+
     let pointclouds = e57_reader.pointclouds();
 
     let mut progress_bar = ProgressBar::hidden();
