@@ -53,7 +53,7 @@ fn main() -> Result<()> {
     rayon::ThreadPoolBuilder::new()
         .num_threads(number_of_threads)
         .build_global()
-        .unwrap();
+        .context("Failed to initialize the global thread pool")?;
 
     let e57_reader = E57Reader::from_file(&input_path).context("Failed to open e57 file")?;
 
@@ -65,32 +65,30 @@ fn main() -> Result<()> {
 
     if has_progress {
         let total_records: u64 = pointclouds.iter().map(|pc| pc.records).sum();
+        let progress_style = ProgressStyle::with_template(
+            "{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {msg} ({eta})",
+        )
+        .context("Error setting up progress bar template")?
+        .with_key(
+            "eta",
+            |state: &ProgressState, w: &mut dyn std::fmt::Write| {
+                write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap()
+            },
+        )
+        .progress_chars("=>");
+
         progress_bar = ProgressBar::new(total_records);
-        progress_bar.set_style(
-            ProgressStyle::with_template(
-                "{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {msg} ({eta})",
-            )
-            .unwrap()
-            .with_key(
-                "eta",
-                |state: &ProgressState, w: &mut dyn std::fmt::Write| {
-                    write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap()
-                },
-            )
-            .progress_chars("=>"),
-        );
+        progress_bar.set_style(progress_style);
     }
 
     pointclouds
         .par_iter()
         .enumerate()
         .for_each(|(index, pointcloud)| -> () {
-            let las_path = match construct_las_path(&output_path, index)
-                .context("Couldn't create las path.")
-            {
+            let las_path = match construct_las_path(&output_path, index) {
                 Ok(p) => p,
                 Err(e) => {
-                    eprintln!("Error encountered: {}", e);
+                    eprintln!("Unable to create file path: {}", e);
                     return ();
                 }
             };
@@ -122,28 +120,24 @@ fn main() -> Result<()> {
                 }
             };
 
-            let mut e57_reader =
-                match E57Reader::from_file(&input_path).context("Failed to open e57 file") {
-                    Ok(r) => r,
-                    Err(e) => {
-                        eprintln!("Error encountered: {}", e);
-                        return ();
-                    }
-                };
+            let mut e57_reader = match E57Reader::from_file(&input_path) {
+                Ok(r) => r,
+                Err(e) => {
+                    eprintln!("Failed to open e57 file: {}", e);
+                    return ();
+                }
+            };
 
-            let mut pointcloud_reader = match e57_reader
-                .pointcloud_simple(&pointcloud)
-                .context("Unable to get point cloud iterator")
-            {
+            let mut pointcloud_reader = match e57_reader.pointcloud_simple(&pointcloud) {
                 Ok(i) => i,
                 Err(e) => {
-                    eprintln!("Error encountered: {}", e);
+                    eprintln!("Unable to get point cloud iterator: {}", e);
                     return ();
                 }
             };
             pointcloud_reader.skip_invalid(true);
 
-            println!("Saving pointcloud {} ...", index);
+            println!("Saving pointcloud {}...", index);
             let mut count = 0.0;
             let mut sum_coordinate = (0.0, 0.0, 0.0);
 
@@ -151,7 +145,7 @@ fn main() -> Result<()> {
                 let point = match p {
                     Ok(p) => p,
                     Err(e) => {
-                        eprintln!("Error encountered: {}", e);
+                        eprintln!("Could not read point: {}", e);
                         return ();
                     }
                 };
@@ -176,7 +170,10 @@ fn main() -> Result<()> {
 
                 match writer.write(las_point) {
                     Ok(_) => (),
-                    Err(_e) => return,
+                    Err(e) => {
+                        eprintln!("Unable to write: {}", e);
+                        return ();
+                    }
                 };
 
                 progress_bar.inc(1);
@@ -185,7 +182,7 @@ fn main() -> Result<()> {
             match writer.close() {
                 Ok(_) => (),
                 Err(e) => {
-                    eprintln!("Error encountered: {}", e);
+                    eprintln!("Failed to close the writer: {}", e);
                     return ();
                 }
             };
@@ -202,6 +199,6 @@ fn main() -> Result<()> {
     serde_json::to_writer(&mut writer, &stations)?;
     writer.flush()?;
 
-    progress_bar.finish_with_message("Finished convertion from e57 to las !");
+    progress_bar.finish_with_message("Finished conversion from e57 to las !");
     Ok(())
 }
