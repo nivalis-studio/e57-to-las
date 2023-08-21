@@ -37,6 +37,9 @@ struct Args {
 
     #[arg(short = 'P', long, default_value_t = false)]
     progress: bool,
+
+    #[arg(short = 'T', long, default_value_t = 0)]
+    threads: usize,
 }
 
 fn main() -> Result<()> {
@@ -45,6 +48,12 @@ fn main() -> Result<()> {
     let input_path = args.path;
     let output_path = Path::new(&args.output);
     let has_progress = args.progress;
+    let number_of_threads = args.threads;
+
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(number_of_threads)
+        .build_global()
+        .unwrap();
 
     let e57_reader = E57Reader::from_file(&input_path).context("Failed to open e57 file")?;
 
