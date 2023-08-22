@@ -1,4 +1,13 @@
 use serde::Serialize;
+extern crate rayon;
+
+use anyhow::{Context, Result};
+use std::{
+    fs::File,
+    io::{BufWriter, Write as IoWrite},
+    path::Path,
+    sync::Mutex,
+};
 
 #[derive(Serialize)]
 pub struct StationPoint {
@@ -13,6 +22,15 @@ pub fn create_station_point(sum_coordinate: (f64, f64, f64), count: f64) -> Stat
         y: sum_coordinate.1 / count,
         z: sum_coordinate.2 / count,
     }
+}
+
+pub fn create_station_file(output_path: String, stations: Mutex<Vec<StationPoint>>) -> Result<()> {
+    let stations_file = File::create(Path::new(&output_path).join("stations.json"))?;
+    let mut writer = BufWriter::new(stations_file);
+    serde_json::to_writer(&mut writer, &stations)?;
+    writer.flush()?;
+
+    Ok(())
 }
 
 pub fn get_sum_coordinates(

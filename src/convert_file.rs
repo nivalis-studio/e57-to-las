@@ -1,14 +1,9 @@
 extern crate rayon;
 use rayon::prelude::*;
 
-use crate::{convert_pointcloud, StationPoint};
+use crate::{convert_pointcloud, create_station_file, StationPoint};
 use anyhow::{Context, Result};
-use std::{
-    fs::File,
-    io::{BufWriter, Write as IoWrite},
-    path::Path,
-    sync::Mutex,
-};
+use std::sync::Mutex;
 
 pub fn convert_file(input_path: String, output_path: String) -> Result<()> {
     let e57_reader = e57::E57Reader::from_file(&input_path).context("Failed to open e57 file")?;
@@ -37,10 +32,7 @@ pub fn convert_file(input_path: String, output_path: String) -> Result<()> {
             stations.lock().unwrap().append(&mut converter_result);
         });
 
-    let stations_file = File::create(Path::new(&output_path).join("stations.json"))?;
-    let mut writer = BufWriter::new(stations_file);
-    serde_json::to_writer(&mut writer, &stations)?;
-    writer.flush()?;
+    create_station_file(output_path, stations)?;
 
     Ok(())
 }
