@@ -35,7 +35,6 @@ pub fn convert_pointcloud(
     let mut pointcloud_reader = e57_reader
         .pointcloud_simple(pointcloud)
         .context("Unable to get point cloud iterator: ")?;
-    pointcloud_reader.skip_invalid(true);
 
     let mut count = 0.0;
     let mut sum_coordinates = (0.0, 0.0, 0.0);
