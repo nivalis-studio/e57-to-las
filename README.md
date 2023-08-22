@@ -14,7 +14,6 @@ A utility to convert E57 point cloud files to LAS format. It is based on the [E5
 ## Features
 
 - [x] Parallel processing using `rayon` for faster conversion.
-- [ ] Progress bar support to track the conversion process.
 - [x] Error handling to ensure corrupted or unsupported files do not halt the process.
 - [x] Generates a JSON file (`stations.json`) containing station points after conversion.
 
@@ -51,7 +50,6 @@ Here are some of the main dependencies used:
 - `clap`: Command-line argument parsing
 - `e57`: E57 file format reader
 - `las`: LAS file format writer
-- `indicatif`: Progress bar
 - `uuid`: For GUID processing
 - `serde`: For serialization and deserialization of data
 
