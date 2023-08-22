@@ -2,6 +2,46 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0](https://github.com/wildweb-io/e57_to_las/compare/v0.2.1..0.3.0) - 2023-08-22
+
+### ⛰️  Features
+
+- Extract `get_las_writer` fn - ([2bfe276](https://github.com/wildweb-io/e57_to_las/commit/2bfe2764c005327a0b58bf846f1943605607fe89))
+- Extract `create_station_file` function - ([24378fe](https://github.com/wildweb-io/e57_to_las/commit/24378fe805a594b4eff0e606c761af67478c51d3))
+- Add convert file fn - ([ccf390e](https://github.com/wildweb-io/e57_to_las/commit/ccf390ef1b717d37135f05e1122f0f77ccf096e6))
+- Create lib - ([2da027f](https://github.com/wildweb-io/e57_to_las/commit/2da027fc977cbc26ac81d73e2f5fea8852096470))
+
+### 🚜 Refactor
+
+- Clean up lib exports - ([a88686a](https://github.com/wildweb-io/e57_to_las/commit/a88686acf0589d8cae14f46b6ff4044a835b76c5))
+- Replace matches with error propagation - ([711fd2d](https://github.com/wildweb-io/e57_to_las/commit/711fd2dd7314178b17d64a2e465e2b97e9891469))
+- Adopt a more modular approach - ([108ee47](https://github.com/wildweb-io/e57_to_las/commit/108ee47d4cd95a477d051cbcec56e49d70463b8b))
+
+### 📚 Documentation
+
+- Add rustdoc for the exported functions - ([227ff45](https://github.com/wildweb-io/e57_to_las/commit/227ff45f8bb6c17ec2a03638414d641fd20e2092))
+- Update CHANGELOG - ([32e979e](https://github.com/wildweb-io/e57_to_las/commit/32e979e265f16f5915cadf0e171bcb42229a19ba))
+
+### ⚙️ Miscellaneous Tasks
+
+- *(release)* V0.2.1 - ([3df9268](https://github.com/wildweb-io/e57_to_las/commit/3df9268e0e59a81ddc815c40176ff0925f80bc50))
+- Refactor point conversion in separate mod - ([d400f96](https://github.com/wildweb-io/e57_to_las/commit/d400f96d6366bb90be7d6db17df1d8a3c0bd611e))
+- Remove potentially unused functions - ([950c663](https://github.com/wildweb-io/e57_to_las/commit/950c6631e56764c9f3cfd4333051e80b085cff7a))
+- Update point conversion to e57 version and example - ([a8b6a29](https://github.com/wildweb-io/e57_to_las/commit/a8b6a2951db114fe81eec1ea1d8ad9aa426c2311))
+- Remove deprecated pointcloud reader method - ([364aa6b](https://github.com/wildweb-io/e57_to_las/commit/364aa6be98322196d33ddf31f94729faf17c8a70))
+- Update sum_coordinates to check the validity of current coordinates - ([465c958](https://github.com/wildweb-io/e57_to_las/commit/465c95844b9bb87d48505db40ebe1df5515a5db5))
+- Replace eventual invalid guid by random uuid - ([1b6f8f4](https://github.com/wildweb-io/e57_to_las/commit/1b6f8f428a97da07976e668647e5c4dcf8ac89b0))
+- Refactor stations from vec to hashmap - ([101ec94](https://github.com/wildweb-io/e57_to_las/commit/101ec943438ef3c7b157d32055253c310e8ddb30))
+- Move thread pool builder in convert_file mod - ([c1cb0e4](https://github.com/wildweb-io/e57_to_las/commit/c1cb0e4c2116268e569bafa59a3bcbc87279c5d5))
+- Update README - ([55f8200](https://github.com/wildweb-io/e57_to_las/commit/55f82007a1449befe903d189658e9b27df6880c6))
+- Cleanup unusued crates deps - ([9a242f3](https://github.com/wildweb-io/e57_to_las/commit/9a242f33146f5e4f78438357d00d60f750a2b002))
+- Rename get_sum_coordinates - ([8fa134a](https://github.com/wildweb-io/e57_to_las/commit/8fa134a35b4784765c1efbb42c95243a1269459a))
+
+### Deps
+
+- Bump e57 to 0.8.0 - ([c17f576](https://github.com/wildweb-io/e57_to_las/commit/c17f57685b78d16da964a37ca993e62f9d585eb1))
+- Add v4 feature to uuid crate - ([8d6afc9](https://github.com/wildweb-io/e57_to_las/commit/8d6afc9aa42c8291f475d1b68a6f0de74509d9cc))
+
 ## [0.2.1](https://github.com/wildweb-io/e57_to_las/compare/v0.2.0..v0.2.1) - 2023-08-22
 
 ### ⛰️  Features
