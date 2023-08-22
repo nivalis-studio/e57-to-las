@@ -2,15 +2,12 @@ use crate::colors::*;
 use anyhow::Result;
 use e57::Point;
 
-pub fn point_converter(
+pub fn convert_point(
     point: Point,
-    color_limits: ParsedColorLimits,
-    intensity_limits: ParsedIntensityLimits,
+    pointcloud_limits: ParsedPointCloudLimits,
 ) -> Result<las::Point> {
-    let las_colors = get_las_colors(&point.color, point.color_invalid, color_limits);
-
-    let las_intensity =
-        get_las_intensity(point.intensity, point.intensity_invalid, intensity_limits);
+    let las_colors = get_las_colors(&point, pointcloud_limits.color_limits);
+    let las_intensity = get_las_intensity(&point, pointcloud_limits.intensity_limits);
 
     let las_point = las::Point {
         x: point.cartesian.x,

@@ -1,19 +1,18 @@
-use crate::colors::{get_colors_limit, get_intensity_limits};
-use crate::p_converter::point_converter;
-use crate::stations::StationPoint;
+use crate::colors::get_pointcloud_limits;
+use crate::convert_point::convert_point;
+use crate::stations::{create_station_point, get_sum_coordinate, StationPoint};
 use crate::utils::construct_las_path;
 
 use anyhow::Result;
 use e57::{E57Reader, PointCloud};
 use las::Write;
-use std::path::Path;
 use uuid::Uuid;
 
-pub fn point_cloud_converter(
+pub fn convert_pointcloud(
     index: usize,
     pointcloud: &PointCloud,
     input_path: &String,
-    output_path: &Path,
+    output_path: &String,
 ) -> Result<Vec<StationPoint>> {
     let mut stations: Vec<StationPoint> = Vec::new();
     let las_path = match construct_las_path(output_path, index) {
@@ -60,14 +59,16 @@ pub fn point_cloud_converter(
             return Err(anyhow::anyhow!("Unable to get point cloud iterator: {}", e));
         }
     };
+
     pointcloud_reader.skip_invalid(true);
 
-    println!("Saving pointcloud {}...", index);
     let mut count = 0.0;
     let mut sum_coordinate = (0.0, 0.0, 0.0);
 
-    let color_limits = get_colors_limit(pointcloud.color_limits.clone());
-    let intensity_limits = get_intensity_limits(pointcloud.intensity_limits.clone());
+    let point_limits = get_pointcloud_limits(
+        pointcloud.color_limits.clone(),
+        pointcloud.intensity_limits.clone(),
+    );
 
     pointcloud_reader.for_each(|p| {
         let point = match p {
@@ -79,14 +80,9 @@ pub fn point_cloud_converter(
         };
 
         count += 1.0;
-        sum_coordinate = (
-            sum_coordinate.0 + point.cartesian.x,
-            sum_coordinate.1 + point.cartesian.y,
-            sum_coordinate.2 + point.cartesian.z,
-        );
+        sum_coordinate = get_sum_coordinate(sum_coordinate, &point);
 
-        let las_point = match point_converter(point, color_limits.clone(), intensity_limits.clone())
-        {
+        let las_point = match convert_point(point, point_limits.clone()) {
             Ok(p) => p,
             Err(e) => {
                 eprintln!("Could not convert point: {}", e);
@@ -114,11 +110,7 @@ pub fn point_cloud_converter(
         return Err(anyhow::anyhow!("No points in pointcloud."));
     }
 
-    stations.push(StationPoint {
-        x: sum_coordinate.0 / count,
-        y: sum_coordinate.1 / count,
-        z: sum_coordinate.2 / count,
-    });
+    stations.push(create_station_point(sum_coordinate, count));
 
     Ok(stations)
 }
