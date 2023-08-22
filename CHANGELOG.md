@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.1](https://github.com/wildweb-io/e57_to_las/compare/v0.2.0..v0.2.1) - 2023-08-22
+
+### ⛰️  Features
+
+- Improve color and intensity calculations - ([aa6f164](https://github.com/wildweb-io/e57_to_las/commit/aa6f164739aeece57d4d2a5371786d16b65a5fff))
+
+### 📚 Documentation
+
+- Add badges to README - ([242950b](https://github.com/wildweb-io/e57_to_las/commit/242950bf6216853a00953a4d5913c76ac848ed2a))
+
+### ⚙️ Miscellaneous Tasks
+
+- *(release)* V0.2.1 - ([870565c](https://github.com/wildweb-io/e57_to_las/commit/870565c69e59fe4aa644c4add3aa77c86a9ae8c4))
+- Update repo and bin name - ([321a55a](https://github.com/wildweb-io/e57_to_las/commit/321a55a12543af35a930c7696fc6f03353aa55d4))
+- Bump e57 crate to v0.7.0 - ([cb7f9e9](https://github.com/wildweb-io/e57_to_las/commit/cb7f9e98e51ad8794277c2b0785cc7a2d264a782))
+
 ## [0.2.0](https://github.com/wildweb-io/e57_to_las/compare/v0.1.1..0.2.0) - 2023-08-21
 
 ### ⛰️ Features
