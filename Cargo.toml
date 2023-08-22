@@ -16,7 +16,7 @@ authors = ["pnodet <paul.nodet@gmail.com>", "pnwa <pnwa@icloud.com>"]
 [dependencies]
 anyhow = "1.0.72"
 clap = { version = "4.3.21", features = ["derive"] }
-e57 = "0.7.0"
+e57 = "0.8.0"
 serde_json = "1.0.105"
 serde = { version = "1.0.183", features = ["derive"] }
 las = "0.8.1"
