@@ -1,8 +1,8 @@
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 
-pub fn construct_las_path(output_path: &Path, index: usize) -> Result<PathBuf> {
-    let output_sub_dir_path = output_path.join("las");
+pub(crate) fn construct_las_path(output_path: &String, index: usize) -> Result<PathBuf> {
+    let output_sub_dir_path = Path::new(&output_path).join("las");
 
     std::fs::create_dir_all(&output_sub_dir_path).context(format!(
         "Couldn't find or create output dir {}.",
