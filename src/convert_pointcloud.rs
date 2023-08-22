@@ -1,9 +1,9 @@
 use crate::colors::get_pointcloud_limits;
 use crate::convert_point::convert_point;
-use crate::stations::{create_station_point, get_sum_coordinate, StationPoint};
+use crate::stations::{create_station_point, get_sum_coordinates, StationPoint};
 use crate::utils::construct_las_path;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use e57::{E57Reader, PointCloud};
 use las::Write;
 use uuid::Uuid;
@@ -15,55 +15,28 @@ pub fn convert_pointcloud(
     output_path: &String,
 ) -> Result<Vec<StationPoint>> {
     let mut stations: Vec<StationPoint> = Vec::new();
-    let las_path = match construct_las_path(output_path, index) {
-        Ok(p) => p,
-        Err(e) => {
-            return Err(anyhow::anyhow!("Unable to create file path: {}", e));
-        }
-    };
+    let las_path =
+        construct_las_path(output_path, index).context("Unable to create file path: ")?;
 
     let mut builder = las::Builder::from((1, 4));
     builder.point_format.has_color = true;
     builder.generating_software = String::from("e57_to_las");
-    builder.guid = match Uuid::parse_str(&pointcloud.guid.clone().replace("_", "-")) {
-        Ok(g) => g,
-        Err(e) => {
-            return Err(anyhow::anyhow!("Invalid guid: {}", e));
-        }
-    };
+    builder.guid = Uuid::parse_str(&pointcloud.guid.clone().replace("_", "-"))
+        .context("Invalid pointcloud guid: ")?;
 
-    let header = match builder.into_header() {
-        Ok(h) => h,
-        Err(e) => {
-            return Err(anyhow::anyhow!("Error encountered: {}", e));
-        }
-    };
+    let header = builder.into_header().context("Error encountered: ")?;
 
-    let mut writer = match las::Writer::from_path(&las_path, header) {
-        Ok(w) => w,
-        Err(e) => {
-            return Err(anyhow::anyhow!("Error encountered: {}", e));
-        }
-    };
+    let mut writer = las::Writer::from_path(&las_path, header).context("Error encountered: ")?;
 
-    let mut e57_reader = match E57Reader::from_file(input_path) {
-        Ok(r) => r,
-        Err(e) => {
-            return Err(anyhow::anyhow!("Failed to open e57 file: {}", e));
-        }
-    };
+    let mut e57_reader = E57Reader::from_file(input_path).context("Failed to open e57 file: ")?;
 
-    let mut pointcloud_reader = match e57_reader.pointcloud_simple(pointcloud) {
-        Ok(i) => i,
-        Err(e) => {
-            return Err(anyhow::anyhow!("Unable to get point cloud iterator: {}", e));
-        }
-    };
-
+    let mut pointcloud_reader = e57_reader
+        .pointcloud_simple(pointcloud)
+        .context("Unable to get point cloud iterator: ")?;
     pointcloud_reader.skip_invalid(true);
 
     let mut count = 0.0;
-    let mut sum_coordinate = (0.0, 0.0, 0.0);
+    let mut sum_coordinates = (0.0, 0.0, 0.0);
 
     let point_limits = get_pointcloud_limits(
         pointcloud.color_limits.clone(),
@@ -80,7 +53,7 @@ pub fn convert_pointcloud(
         };
 
         count += 1.0;
-        sum_coordinate = get_sum_coordinate(sum_coordinate, &point);
+        sum_coordinates = get_sum_coordinates(sum_coordinates, &point);
 
         let las_point = match convert_point(point, point_limits.clone()) {
             Ok(p) => p,
@@ -99,18 +72,13 @@ pub fn convert_pointcloud(
         };
     });
 
-    match writer.close() {
-        Ok(_) => (),
-        Err(e) => {
-            return Err(anyhow::anyhow!("Failed to close the writer: {}", e));
-        }
-    };
+    writer.close().context("Failed to close the writer: ")?;
 
     if count == 0.0 {
         return Err(anyhow::anyhow!("No points in pointcloud."));
     }
 
-    stations.push(create_station_point(sum_coordinate, count));
+    stations.push(create_station_point(sum_coordinates, count));
 
     Ok(stations)
 }
