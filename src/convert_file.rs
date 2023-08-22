@@ -5,7 +5,16 @@ use crate::{convert_pointcloud, create_station_file, StationPoint};
 use anyhow::{Context, Result};
 use std::sync::Mutex;
 
-pub fn convert_file(input_path: String, output_path: String) -> Result<()> {
+pub fn convert_file(
+    input_path: String,
+    output_path: String,
+    number_of_threads: usize,
+) -> Result<()> {
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(number_of_threads)
+        .build_global()
+        .context("Failed to initialize the global thread pool")?;
+
     let e57_reader = e57::E57Reader::from_file(&input_path).context("Failed to open e57 file")?;
 
     if e57_reader.format_name() != "ASTM E57 3D Imaging Data File" {

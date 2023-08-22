@@ -20,11 +20,6 @@ struct Args {
 fn main() -> Result<()> {
     let args = Args::parse();
 
-    rayon::ThreadPoolBuilder::new()
-        .num_threads(args.threads)
-        .build_global()
-        .context("Failed to initialize the global thread pool")?;
-
-    convert_file(args.path, args.output).context("Failed to convert file")?;
+    convert_file(args.path, args.output, args.threads).context("Failed to convert file")?;
     Ok(())
 }
