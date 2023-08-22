@@ -3,7 +3,7 @@ use rayon::prelude::*;
 
 use crate::{convert_pointcloud, create_station_file, StationPoint};
 use anyhow::{Context, Result};
-use std::sync::Mutex;
+use std::{collections::HashMap, sync::Mutex};
 
 pub fn convert_file(
     input_path: String,
@@ -22,14 +22,14 @@ pub fn convert_file(
     }
 
     let pointclouds = e57_reader.pointclouds();
-    let stations: Mutex<Vec<StationPoint>> = Mutex::new(Vec::new());
+    let stations: Mutex<HashMap<usize, StationPoint>> = Mutex::new(HashMap::new());
 
     pointclouds
         .par_iter()
         .enumerate()
         .for_each(|(index, pointcloud)| -> () {
             println!("Saving pointcloud {}...", index);
-            let mut converter_result =
+            let converter_result =
                 match convert_pointcloud(index, pointcloud, &input_path, &output_path) {
                     Ok(r) => r,
                     Err(e) => {
@@ -38,7 +38,7 @@ pub fn convert_file(
                     }
                 };
 
-            stations.lock().unwrap().append(&mut converter_result);
+            stations.lock().unwrap().extend(converter_result);
         });
 
     create_station_file(output_path, stations)?;

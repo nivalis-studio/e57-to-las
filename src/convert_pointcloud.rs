@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::colors::get_pointcloud_limits;
 use crate::convert_point::convert_point;
 use crate::stations::{create_station_point, get_sum_coordinates, StationPoint};
@@ -13,8 +15,8 @@ pub fn convert_pointcloud(
     pointcloud: &PointCloud,
     input_path: &String,
     output_path: &String,
-) -> Result<Vec<StationPoint>> {
-    let mut stations: Vec<StationPoint> = Vec::new();
+) -> Result<HashMap<usize, StationPoint>> {
+    let mut stations: HashMap<usize, StationPoint> = HashMap::new();
     let las_path =
         construct_las_path(output_path, index).context("Unable to create file path: ")?;
 
@@ -78,7 +80,7 @@ pub fn convert_pointcloud(
         return Err(anyhow::anyhow!("No points in pointcloud."));
     }
 
-    stations.push(create_station_point(sum_coordinates, count));
+    stations.insert(index, create_station_point(sum_coordinates, count));
 
     Ok(stations)
 }
