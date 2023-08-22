@@ -2,6 +2,7 @@
 
 [![Crates.io](https://img.shields.io/crates/v/e57_to_las.svg)](https://crates.io/crates/e57_to_las)
 [![No Unsafe](https://img.shields.io/badge/unsafe-forbidden-brightgreen.svg)](https://doc.rust-lang.org/nomicon/meet-safe-and-unsafe.html)
+[![Documentation](https://docs.rs/e57-to-las/badge.svg)](https://docs.rs/e57_to_las)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Dependencies](https://deps.rs/repo/github/wildweb-io/e57_to_las/status.svg)](https://deps.rs/repo/github/wildweb-io/e57_to_las)
 
