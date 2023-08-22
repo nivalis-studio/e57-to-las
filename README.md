@@ -23,20 +23,41 @@ A utility to convert E57 point cloud files to LAS format. It is based on the [E5
 e57_to_las [OPTIONS]
 ```
 
+To use this as a crate in your own project, add the following to your `Cargo.toml`:
+
+```toml
+[dependencies]
+e57-to-las = "0.3.0"
+```
+
+You can then use it in your code as follows:
+
+```rust
+use e57_to_las::convert_file;
+
+fn main() {
+    let path = "path/to/input.e57";
+    let output = "path/to/output/directory";
+
+    let input_path = String::from("path/to/input.e57");
+    let output_path = String::from("path/to/output/directory");
+    let number_of_threads = 0; // 0 = max possible
+    convert_file(input_path, output_path, number_of_threads);
+}
+```
+
 ### Options
 
 - `-p, --path <path>`: The path to the input E57 file.
 - `-o, --output <output>`: The output directory for the converted LAS files (default: `./`).
-- `-P, --progress`: Display a progress bar (default: off).
 - `-T, --threads <threads>`: Number of threads for parallel processing (default: 0 = max possible).
 
 ## How It Works
 
 1. Reads the provided E57 file.
-2. Initializes the progress bar if the `-P` option is provided.
-3. Loops through the point clouds in the E57 file in parallel.
-4. For each point cloud, it writes the points to a corresponding LAS file.
-5. After processing all point clouds, it calculates and writes the station points to `stations.json` in the output directory.
+2. Loops through the point clouds in the E57 file in parallel.
+3. For each point cloud, it writes the points to a corresponding LAS file.
+4. After processing all point clouds, it calculates and writes the station points to `stations.json` in the output directory.
 
 ## Contribution
 
