@@ -15,7 +15,7 @@ pub fn create_station_point(sum_coordinate: (f64, f64, f64), count: f64) -> Stat
     }
 }
 
-pub fn get_sum_coordinate(
+pub fn get_sum_coordinates(
     mut sum_coordinate: (f64, f64, f64),
     point: &e57::Point,
 ) -> (f64, f64, f64) {
