@@ -260,8 +260,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "e57_to_las"
-version = "0.2.0"
+name = "e57-to-las"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "clap",
