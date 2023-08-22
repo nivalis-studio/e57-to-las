@@ -1,9 +1,9 @@
 # E57 to LAS conversion
 
-[![Crates.io](https://img.shields.io/crates/v/e57-to-las.svg)](https://crates.io/crates/e57-to-las)
+[![Crates.io](https://img.shields.io/crates/v/e57_to_las.svg)](https://crates.io/crates/e57_to_las)
 [![No Unsafe](https://img.shields.io/badge/unsafe-forbidden-brightgreen.svg)](https://doc.rust-lang.org/nomicon/meet-safe-and-unsafe.html)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Dependencies](https://deps.rs/repo/github/wildweb-io/e57-to-las-rs/status.svg)](https://deps.rs/repo/github/wildweb-io/e57-to-las-rs)
+[![Dependencies](https://deps.rs/repo/github/wildweb-io/e57_to_las/status.svg)](https://deps.rs/repo/github/wildweb-io/e57_to_las)
 
 A utility to convert E57 point cloud files to LAS format. It is based on the [E57 crate](https://github.com/cry-inc/e57) and the [LAS crate](https://github.com/gadomski/las-rs).
 
