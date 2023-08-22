@@ -1,12 +1,11 @@
 use std::collections::HashMap;
 
 use crate::colors::get_pointcloud_limits;
-use crate::convert_point::convert_point;
 use crate::stations::{create_station_point, get_sum_coordinates, StationPoint};
 use crate::utils::construct_las_path;
 
 use anyhow::{Context, Result};
-use e57::{E57Reader, PointCloud};
+use e57::{CartesianCoordinate, E57Reader, PointCloud};
 use las::Write;
 use uuid::Uuid;
 
@@ -44,34 +43,33 @@ pub fn convert_pointcloud(
         pointcloud.intensity_limits.clone(),
     );
 
-    pointcloud_reader.for_each(|p| {
-        let point = match p {
-            Ok(p) => p,
-            Err(e) => {
-                eprintln!("Could not read point: {}", e);
-                return ();
-            }
-        };
+    for p in pointcloud_reader {
+        let point = p.context("Could not read point: ")?;
 
         count += 1.0;
         sum_coordinates = get_sum_coordinates(sum_coordinates, &point);
+        let mut las_point = las::Point::default();
 
-        let las_point = match convert_point(point, point_limits.clone()) {
-            Ok(p) => p,
-            Err(e) => {
-                eprintln!("Could not convert point: {}", e);
-                return ();
-            }
-        };
+        if let CartesianCoordinate::Valid { x, y, z } = point.cartesian {
+            las_point.x = x;
+            las_point.y = y;
+            las_point.z = z;
+        } else {
+            continue;
+        }
+        if let Some(color) = point.color {
+            las_point.color = Some(las::Color {
+                red: (color.red * u16::MAX as f32) as u16,
+                green: (color.green * u16::MAX as f32) as u16,
+                blue: (color.blue * u16::MAX as f32) as u16,
+            })
+        }
+        if let Some(intensity) = point.intensity {
+            las_point.intensity = (intensity * u16::MAX as f32) as u16;
+        }
 
-        match writer.write(las_point) {
-            Ok(_) => (),
-            Err(e) => {
-                eprintln!("Unable to write: {}", e);
-                return ();
-            }
-        };
-    });
+        writer.write(las_point).context("Unable to write: ")?;
+    }
 
     writer.close().context("Failed to close the writer: ")?;
 
