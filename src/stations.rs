@@ -1,3 +1,4 @@
+use e57::CartesianCoordinate;
 use serde::Serialize;
 extern crate rayon;
 
@@ -38,14 +39,16 @@ pub fn create_station_file(
 }
 
 pub fn get_sum_coordinates(
-    mut sum_coordinate: (f64, f64, f64),
+    mut sum_coordinates: (f64, f64, f64),
     point: &e57::Point,
 ) -> (f64, f64, f64) {
-    sum_coordinate = (
-        sum_coordinate.0 + point.cartesian.x,
-        sum_coordinate.1 + point.cartesian.y,
-        sum_coordinate.2 + point.cartesian.z,
-    );
-
-    sum_coordinate
+    if let CartesianCoordinate::Valid { x, y, z } = point.cartesian {
+        (
+            sum_coordinates.0 + x,
+            sum_coordinates.1 + y,
+            sum_coordinates.2 + z,
+        )
+    } else {
+        sum_coordinates
+    }
 }
