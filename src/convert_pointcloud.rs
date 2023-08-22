@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use crate::colors::get_pointcloud_limits;
 use crate::stations::{create_station_point, get_sum_coordinates, StationPoint};
 use crate::utils::construct_las_path;
 
@@ -31,17 +30,12 @@ pub fn convert_pointcloud(
 
     let mut e57_reader = E57Reader::from_file(input_path).context("Failed to open e57 file: ")?;
 
-    let mut pointcloud_reader = e57_reader
+    let pointcloud_reader = e57_reader
         .pointcloud_simple(pointcloud)
         .context("Unable to get point cloud iterator: ")?;
 
     let mut count = 0.0;
     let mut sum_coordinates = (0.0, 0.0, 0.0);
-
-    let point_limits = get_pointcloud_limits(
-        pointcloud.color_limits.clone(),
-        pointcloud.intensity_limits.clone(),
-    );
 
     for p in pointcloud_reader {
         let point = p.context("Could not read point: ")?;

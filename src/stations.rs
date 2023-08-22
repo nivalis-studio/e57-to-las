@@ -39,7 +39,7 @@ pub fn create_station_file(
 }
 
 pub fn get_sum_coordinates(
-    mut sum_coordinates: (f64, f64, f64),
+    sum_coordinates: (f64, f64, f64),
     point: &e57::Point,
 ) -> (f64, f64, f64) {
     if let CartesianCoordinate::Valid { x, y, z } = point.cartesian {
