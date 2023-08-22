@@ -18,7 +18,7 @@ pub struct StationPoint {
     pub z: f64,
 }
 
-pub fn create_station_point(sum_coordinate: (f64, f64, f64), count: f64) -> StationPoint {
+pub(crate) fn create_station_point(sum_coordinate: (f64, f64, f64), count: f64) -> StationPoint {
     StationPoint {
         x: sum_coordinate.0 / count,
         y: sum_coordinate.1 / count,
@@ -26,7 +26,7 @@ pub fn create_station_point(sum_coordinate: (f64, f64, f64), count: f64) -> Stat
     }
 }
 
-pub fn create_station_file(
+pub(crate) fn create_station_file(
     output_path: String,
     stations: Mutex<HashMap<usize, StationPoint>>,
 ) -> Result<()> {
@@ -38,7 +38,7 @@ pub fn create_station_file(
     Ok(())
 }
 
-pub fn get_sum_coordinates(
+pub(crate) fn get_sum_coordinates(
     sum_coordinates: (f64, f64, f64),
     point: &e57::Point,
 ) -> (f64, f64, f64) {

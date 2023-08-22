@@ -17,6 +17,5 @@ mod stations;
 mod utils;
 
 pub use self::convert_file::convert_file;
+pub use self::convert_point::convert_point;
 pub use self::convert_pointcloud::convert_pointcloud;
-pub use self::stations::StationPoint;
-pub use self::stations::{create_station_file, create_station_point, get_sum_coordinates};

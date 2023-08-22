@@ -1,7 +1,8 @@
 extern crate rayon;
 use rayon::prelude::*;
 
-use crate::{convert_pointcloud, create_station_file, StationPoint};
+use crate::convert_pointcloud::convert_pointcloud;
+use crate::stations::{create_station_file, StationPoint};
 use anyhow::{Context, Result};
 use std::{collections::HashMap, sync::Mutex};
 
