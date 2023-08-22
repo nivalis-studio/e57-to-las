@@ -10,6 +10,7 @@
 )]
 
 mod convert_file;
+mod convert_point;
 mod convert_pointcloud;
 mod stations;
 mod utils;

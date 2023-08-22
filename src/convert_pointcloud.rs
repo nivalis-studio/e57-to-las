@@ -1,10 +1,11 @@
 use std::collections::HashMap;
 
+use crate::convert_point::convert_point;
 use crate::stations::{create_station_point, get_sum_coordinates, StationPoint};
 use crate::utils::construct_las_path;
 
 use anyhow::{Context, Result};
-use e57::{CartesianCoordinate, E57Reader, PointCloud};
+use e57::{E57Reader, PointCloud};
 use las::Write;
 use uuid::Uuid;
 
@@ -42,25 +43,10 @@ pub fn convert_pointcloud(
 
         count += 1.0;
         sum_coordinates = get_sum_coordinates(sum_coordinates, &point);
-        let mut las_point = las::Point::default();
-
-        if let CartesianCoordinate::Valid { x, y, z } = point.cartesian {
-            las_point.x = x;
-            las_point.y = y;
-            las_point.z = z;
-        } else {
-            continue;
-        }
-        if let Some(color) = point.color {
-            las_point.color = Some(las::Color {
-                red: (color.red * u16::MAX as f32) as u16,
-                green: (color.green * u16::MAX as f32) as u16,
-                blue: (color.blue * u16::MAX as f32) as u16,
-            })
-        }
-        if let Some(intensity) = point.intensity {
-            las_point.intensity = (intensity * u16::MAX as f32) as u16;
-        }
+        let las_point = match convert_point(point) {
+            Some(p) => p,
+            None => continue,
+        };
 
         writer.write(las_point).context("Unable to write: ")?;
     }
