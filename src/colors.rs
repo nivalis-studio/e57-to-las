@@ -1,7 +1,7 @@
-use e57::RecordValue;
 use e57::{ColorLimits, IntensityLimits};
+use e57::{RecordDataType, RecordValue};
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct ParsedColorLimits {
     red_min: f32,
     red_max: f32,
@@ -11,27 +11,51 @@ pub struct ParsedColorLimits {
     blue_max: f32,
 }
 
-#[derive(Clone, Copy, Debug)]
+impl Default for ParsedColorLimits {
+    fn default() -> Self {
+        Self {
+            red_min: 0.0,
+            red_max: 255.0,
+            green_min: 0.0,
+            green_max: 255.0,
+            blue_min: 0.0,
+            blue_max: 255.0,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct ParsedIntensityLimits {
     intensity_min: f32,
     intensity_max: f32,
 }
 
+impl Default for ParsedIntensityLimits {
+    fn default() -> Self {
+        Self {
+            intensity_min: 0.0,
+            intensity_max: 255.0,
+        }
+    }
+}
+
 fn get_max(value: Option<RecordValue>) -> f32 {
-    value.map_or(255.0, |v| match v {
-        RecordValue::Single(v) => v,
-        RecordValue::Double(v) => v as f32,
-        RecordValue::ScaledInteger(v) => v as f32,
-        RecordValue::Integer(v) => v as f32,
+    value.map_or(255.0, |v| {
+        v.to_unit_f32(&RecordDataType::Single {
+            min: None,
+            max: None,
+        })
+        .unwrap_or(255.0)
     })
 }
 
 fn get_min(value: Option<RecordValue>) -> f32 {
-    value.map_or(0.0, |v| match v {
-        RecordValue::Single(v) => v,
-        RecordValue::Double(v) => v as f32,
-        RecordValue::ScaledInteger(v) => v as f32,
-        RecordValue::Integer(v) => v as f32,
+    value.map_or(0.0, |v| {
+        v.to_unit_f32(&RecordDataType::Single {
+            min: None,
+            max: None,
+        })
+        .unwrap_or(0.0)
     })
 }
 

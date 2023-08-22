@@ -1,30 +1,18 @@
-mod colors;
-mod utils;
 extern crate rayon;
 use anyhow::{Context, Result};
 use clap::Parser;
 use e57::E57Reader;
 use indicatif::{ProgressBar, ProgressState, ProgressStyle};
-use las::Write;
 use rayon::prelude::*;
-use serde::Serialize;
 use std::{
     fs::File,
     io::{BufWriter, Write as IoWrite},
     path::Path,
     sync::Mutex,
 };
-use uuid::Uuid;
 
-use crate::colors::*;
-use crate::utils::*;
-
-#[derive(Serialize)]
-struct StationPoint {
-    x: f64,
-    y: f64,
-    z: f64,
-}
+use e57_to_las::pc_converter::point_cloud_converter;
+use e57_to_las::stations::StationPoint;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -85,120 +73,16 @@ fn main() -> Result<()> {
         .par_iter()
         .enumerate()
         .for_each(|(index, pointcloud)| -> () {
-            let las_path = match construct_las_path(&output_path, index) {
-                Ok(p) => p,
-                Err(e) => {
-                    eprintln!("Unable to create file path: {}", e);
-                    return ();
-                }
-            };
-
-            let mut builder = las::Builder::from((1, 4));
-            builder.point_format.has_color = true;
-            builder.generating_software = String::from("e57_to_las");
-            builder.guid = match Uuid::parse_str(&pointcloud.guid.clone().replace("_", "-")) {
-                Ok(g) => g,
-                Err(e) => {
-                    eprintln!("Invalid guid: {}", e);
-                    return ();
-                }
-            };
-
-            let header = match builder.into_header() {
-                Ok(h) => h,
-                Err(e) => {
-                    eprintln!("Error encountered: {}", e);
-                    return ();
-                }
-            };
-
-            let mut writer = match las::Writer::from_path(&las_path, header) {
-                Ok(w) => w,
-                Err(e) => {
-                    eprintln!("Error encountered: {}", e);
-                    return ();
-                }
-            };
-
-            let mut e57_reader = match E57Reader::from_file(&input_path) {
-                Ok(r) => r,
-                Err(e) => {
-                    eprintln!("Failed to open e57 file: {}", e);
-                    return ();
-                }
-            };
-
-            let mut pointcloud_reader = match e57_reader.pointcloud_simple(&pointcloud) {
-                Ok(i) => i,
-                Err(e) => {
-                    eprintln!("Unable to get point cloud iterator: {}", e);
-                    return ();
-                }
-            };
-            pointcloud_reader.skip_invalid(true);
-
-            println!("Saving pointcloud {}...", index);
-            let mut count = 0.0;
-            let mut sum_coordinate = (0.0, 0.0, 0.0);
-
-            let color_limits = get_colors_limit(pointcloud.color_limits.clone());
-            let intensity_limits = get_intensity_limits(pointcloud.intensity_limits.clone());
-
-            pointcloud_reader.for_each(|p| {
-                let point = match p {
-                    Ok(p) => p,
+            let mut converter_result =
+                match point_cloud_converter(index, pointcloud, &input_path, output_path) {
+                    Ok(r) => r,
                     Err(e) => {
-                        eprintln!("Could not read point: {}", e);
-                        return ();
-                    }
-                };
-                count += 1.0;
-                sum_coordinate = (
-                    sum_coordinate.0 + point.cartesian.x,
-                    sum_coordinate.1 + point.cartesian.y,
-                    sum_coordinate.2 + point.cartesian.z,
-                );
-
-                let las_colors = get_las_colors(&point.color, point.color_invalid, color_limits);
-
-                let las_intensity =
-                    get_las_intensity(point.intensity, point.intensity_invalid, intensity_limits);
-
-                let las_point = las::Point {
-                    x: point.cartesian.x,
-                    y: point.cartesian.y,
-                    z: point.cartesian.z,
-                    intensity: las_intensity,
-                    color: Some(las_colors),
-                    ..Default::default()
-                };
-
-                // dbg!(&las_point);
-
-                match writer.write(las_point) {
-                    Ok(_) => (),
-                    Err(e) => {
-                        eprintln!("Unable to write: {}", e);
-                        return ();
+                        eprintln!("Error encountered: {}", e);
+                        return;
                     }
                 };
 
-                progress_bar.inc(1);
-            });
-
-            match writer.close() {
-                Ok(_) => (),
-                Err(e) => {
-                    eprintln!("Failed to close the writer: {}", e);
-                    return ();
-                }
-            };
-
-            stations.lock().unwrap().push(StationPoint {
-                x: sum_coordinate.0 / count,
-                y: sum_coordinate.1 / count,
-                z: sum_coordinate.2 / count,
-            });
+            stations.lock().unwrap().append(&mut converter_result);
         });
 
     let stations_file = File::create(output_path.join("stations.json"))?;
