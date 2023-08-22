@@ -1,13 +1,11 @@
-use std::collections::HashMap;
-
 use crate::convert_point::convert_point;
+use crate::get_las_writer::get_las_writer;
 use crate::stations::{create_station_point, get_sum_coordinates, StationPoint};
-use crate::utils::construct_las_path;
 
 use anyhow::{Context, Result};
 use e57::{E57Reader, PointCloud};
 use las::Write;
-use uuid::Uuid;
+use std::collections::HashMap;
 
 pub fn convert_pointcloud(
     index: usize,
@@ -16,18 +14,9 @@ pub fn convert_pointcloud(
     output_path: &String,
 ) -> Result<HashMap<usize, StationPoint>> {
     let mut stations: HashMap<usize, StationPoint> = HashMap::new();
-    let las_path =
-        construct_las_path(output_path, index).context("Unable to create file path: ")?;
 
-    let mut builder = las::Builder::from((1, 4));
-    builder.point_format.has_color = true;
-    builder.generating_software = String::from("e57_to_las");
-    builder.guid =
-        Uuid::parse_str(&pointcloud.guid.clone().replace("_", "-")).unwrap_or(Uuid::new_v4());
-
-    let header = builder.into_header().context("Error encountered: ")?;
-
-    let mut writer = las::Writer::from_path(&las_path, header).context("Error encountered: ")?;
+    let mut writer =
+        get_las_writer(index, pointcloud, output_path).context("Unable to create writer: ")?;
 
     let mut e57_reader = E57Reader::from_file(input_path).context("Failed to open e57 file: ")?;
 
