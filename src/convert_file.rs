@@ -1,10 +1,12 @@
 extern crate rayon;
 use rayon::prelude::*;
 
-use crate::convert_pointcloud::convert_pointcloud;
-use crate::stations::{create_station_file, StationPoint};
 use anyhow::{Context, Result};
 use std::{collections::HashMap, sync::Mutex};
+
+use crate::convert_pointcloud::convert_pointcloud;
+use crate::spatial_point::SpatialPoint;
+use crate::stations::create_station_file;
 
 /// Converts a given e57 file into a series of point clouds and station files.
 ///
@@ -41,7 +43,7 @@ pub fn convert_file(
     }
 
     let pointclouds = e57_reader.pointclouds();
-    let stations: Mutex<HashMap<usize, StationPoint>> = Mutex::new(HashMap::new());
+    let stations: Mutex<HashMap<usize, SpatialPoint>> = Mutex::new(HashMap::new());
 
     pointclouds
         .par_iter()

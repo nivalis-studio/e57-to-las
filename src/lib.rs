@@ -13,6 +13,7 @@ mod convert_file;
 mod convert_point;
 mod convert_pointcloud;
 mod get_las_writer;
+mod spatial_point;
 mod stations;
 mod utils;
 

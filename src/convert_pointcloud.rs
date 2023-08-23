@@ -1,6 +1,6 @@
 use crate::convert_point::convert_point;
 use crate::get_las_writer::get_las_writer;
-use crate::stations::{create_station_point, get_sum_coordinates, StationPoint};
+use crate::spatial_point::SpatialPoint;
 
 use anyhow::{Context, Result};
 use e57::{E57Reader, PointCloud};
@@ -11,8 +11,8 @@ use std::collections::HashMap;
 ///
 /// This function the points from the point cloud, converts them to LAS points using the `convert_point`
 /// function, and writes them to the LAS file.
-/// Additionally, it calculates the sum of coordinates and returns a hash map containing station
-/// points created with `create_station_point`.
+/// Additionally, it returns a hash map containing the station points,
+/// the coords in the local spatial system of the pointcloud.
 ///
 /// # Parameters
 /// - `index`: The index of the point cloud.
@@ -38,8 +38,8 @@ pub fn convert_pointcloud(
     pointcloud: &PointCloud,
     input_path: &String,
     output_path: &String,
-) -> Result<HashMap<usize, StationPoint>> {
-    let mut stations: HashMap<usize, StationPoint> = HashMap::new();
+) -> Result<HashMap<usize, SpatialPoint>> {
+    let mut stations: HashMap<usize, SpatialPoint> = HashMap::new();
 
     let mut writer =
         get_las_writer(index, pointcloud, output_path).context("Unable to create writer: ")?;
@@ -50,14 +50,9 @@ pub fn convert_pointcloud(
         .pointcloud_simple(pointcloud)
         .context("Unable to get point cloud iterator: ")?;
 
-    let mut count = 0.0;
-    let mut sum_coordinates = (0.0, 0.0, 0.0);
-
     for p in pointcloud_reader {
         let point = p.context("Could not read point: ")?;
 
-        count += 1.0;
-        sum_coordinates = get_sum_coordinates(sum_coordinates, &point);
         let las_point = match convert_point(point) {
             Some(p) => p,
             None => continue,
@@ -68,11 +63,22 @@ pub fn convert_pointcloud(
 
     writer.close().context("Failed to close the writer: ")?;
 
-    if count == 0.0 {
-        return Err(anyhow::anyhow!("No points in pointcloud."));
-    }
+    let translation = match pointcloud.transform.clone() {
+        Some(t) => t.translation,
+        None => e57::Translation {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        },
+    };
 
-    stations.insert(index, create_station_point(sum_coordinates, count));
+    let station_point = SpatialPoint {
+        x: translation.x,
+        y: translation.y,
+        z: translation.z,
+    };
+
+    stations.insert(index, station_point);
 
     Ok(stations)
 }
