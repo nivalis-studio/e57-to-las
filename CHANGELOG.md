@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.1](https://github.com/wildweb-io/e57_to_las/compare/v0.3.0..0.3.1) - 2023-08-23
+
+### ⛰️  Features
+
+- Improve station points calculation - ([aa58476](https://github.com/wildweb-io/e57_to_las/commit/aa58476380ce8e82734dc7bc81ec7c5e4e8adc7b))
+
+### 📚 Documentation
+
+- Add docs.rs to README - ([9c0fd01](https://github.com/wildweb-io/e57_to_las/commit/9c0fd0115f31d427d97dd577cc6fc83daba526dc))
+- Update README - ([95a892f](https://github.com/wildweb-io/e57_to_las/commit/95a892ff17ba4619a9a9b835d7d44a094f779e8a))
+- Update changelog for v0.3 - ([82347af](https://github.com/wildweb-io/e57_to_las/commit/82347af9ceac59748f30600411cc583bc87f37a5))
+
 ## [0.3.0](https://github.com/wildweb-io/e57_to_las/compare/v0.2.1..0.3.0) - 2023-08-22
 
 ### ⛰️  Features

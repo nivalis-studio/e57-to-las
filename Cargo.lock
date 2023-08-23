@@ -233,7 +233,7 @@ dependencies = [
 
 [[package]]
 name = "e57-to-las"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "anyhow",
  "clap",
