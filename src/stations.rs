@@ -11,6 +11,7 @@ use e57::PointCloud;
 use serde_json;
 #[cfg(feature = "stations")]
 use std::{
+    collections::HashMap,
     fs::File,
     io::{BufWriter, Write as IoWrite},
     path::Path,
@@ -18,7 +19,7 @@ use std::{
 
 #[cfg(feature = "stations")]
 pub(crate) fn save_stations(output_path: String, pointclouds: Vec<PointCloud>) -> Result<()> {
-    let mut stations: Vec<SpatialPoint> = Vec::new();
+    let mut stations: HashMap<usize, SpatialPoint> = HashMap::new();
 
     #[cfg(feature = "stations")]
     for index in 0..pointclouds.len() {
@@ -38,7 +39,7 @@ pub(crate) fn save_stations(output_path: String, pointclouds: Vec<PointCloud>) -
             z: translation.z,
         };
 
-        stations.push(station_point);
+        stations.insert(index, station_point);
     }
 
     let stations_file = File::create(Path::new(&output_path).join("stations.json"))?;
