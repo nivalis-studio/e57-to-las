@@ -6,11 +6,7 @@ use anyhow::{Context, Result};
 use crate::convert_pointcloud::convert_pointcloud;
 
 #[cfg(feature = "stations")]
-use crate::spatial_point::SpatialPoint;
-#[cfg(feature = "stations")]
-use crate::stations::create_station_file;
-#[cfg(feature = "stations")]
-use std::collections::HashMap;
+use crate::stations::save_stations;
 
 /// Converts a given e57 file into a series of point clouds and station files.
 ///
@@ -62,31 +58,6 @@ pub fn convert_file(
         .context("Error during the parallel processing of pointclouds")?;
 
     #[cfg(feature = "stations")]
-    let mut stations: HashMap<usize, SpatialPoint> = HashMap::new();
-
-    #[cfg(feature = "stations")]
-    for index in 0..pointclouds.len() {
-        let pc = &pointclouds[index];
-        let translation = match pc.transform.clone() {
-            Some(t) => t.translation,
-            None => e57::Translation {
-                x: 0.0,
-                y: 0.0,
-                z: 0.0,
-            },
-        };
-
-        let station_point = SpatialPoint {
-            x: translation.x,
-            y: translation.y,
-            z: translation.z,
-        };
-
-        stations.insert(index, station_point);
-    }
-
-    #[cfg(feature = "stations")]
-    create_station_file(output_path, stations)?;
-
+    save_stations(output_path, pointclouds)?;
     Ok(())
 }
