@@ -1,11 +1,9 @@
 use crate::convert_point::convert_point;
 use crate::get_las_writer::get_las_writer;
-use crate::spatial_point::SpatialPoint;
 
 use anyhow::{Context, Result};
 use e57::{E57Reader, PointCloud};
 use las::Write;
-use std::collections::HashMap;
 
 /// Converts a point cloud to a LAS file and returns a map of station points.
 ///
@@ -20,11 +18,6 @@ use std::collections::HashMap;
 /// - `input_path`: A reference to the input file path (E57 file).
 /// - `output_path`: A reference to the output dir.
 ///
-/// # Returns
-/// - `Result<HashMap<usize, StationPoint>>`: A result containing a hash map that associates the index
-///   with a station point. Returns an error if any part of the conversion fails, including if there
-///   are no points in the point cloud.
-///
 /// # Example
 /// ```ignore
 /// use e57_to_las::convert_pointcloud;
@@ -38,9 +31,7 @@ pub fn convert_pointcloud(
     pointcloud: &PointCloud,
     input_path: &String,
     output_path: &String,
-) -> Result<HashMap<usize, SpatialPoint>> {
-    let mut stations: HashMap<usize, SpatialPoint> = HashMap::new();
-
+) -> Result<()> {
     let mut writer =
         get_las_writer(index, pointcloud, output_path).context("Unable to create writer: ")?;
 
@@ -63,22 +54,5 @@ pub fn convert_pointcloud(
 
     writer.close().context("Failed to close the writer: ")?;
 
-    let translation = match pointcloud.transform.clone() {
-        Some(t) => t.translation,
-        None => e57::Translation {
-            x: 0.0,
-            y: 0.0,
-            z: 0.0,
-        },
-    };
-
-    let station_point = SpatialPoint {
-        x: translation.x,
-        y: translation.y,
-        z: translation.z,
-    };
-
-    stations.insert(index, station_point);
-
-    Ok(stations)
+    Ok(())
 }

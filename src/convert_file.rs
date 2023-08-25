@@ -2,11 +2,15 @@ extern crate rayon;
 use rayon::prelude::*;
 
 use anyhow::{Context, Result};
-use std::{collections::HashMap, sync::Mutex};
 
 use crate::convert_pointcloud::convert_pointcloud;
+
+#[cfg(feature = "stations")]
 use crate::spatial_point::SpatialPoint;
+#[cfg(feature = "stations")]
 use crate::stations::create_station_file;
+#[cfg(feature = "stations")]
+use std::collections::HashMap;
 
 /// Converts a given e57 file into a series of point clouds and station files.
 ///
@@ -43,7 +47,6 @@ pub fn convert_file(
     }
 
     let pointclouds = e57_reader.pointclouds();
-    let stations: Mutex<HashMap<usize, SpatialPoint>> = Mutex::new(HashMap::new());
 
     pointclouds
         .par_iter()
@@ -51,18 +54,38 @@ pub fn convert_file(
         .try_for_each(|(index, pointcloud)| -> Result<()> {
             println!("Saving pointcloud {}...", index);
 
-            let converter_result = convert_pointcloud(index, pointcloud, &input_path, &output_path)
+            convert_pointcloud(index, pointcloud, &input_path, &output_path)
                 .context(format!("Error while converting pointcloud {}", index))?;
-
-            stations
-                .lock()
-                .map_err(|_| anyhow::anyhow!("Failed to lock stations"))?
-                .extend(converter_result);
 
             Ok(())
         })
         .context("Error during the parallel processing of pointclouds")?;
 
+    #[cfg(feature = "stations")]
+    let mut stations: HashMap<usize, SpatialPoint> = HashMap::new();
+
+    #[cfg(feature = "stations")]
+    for index in 0..pointclouds.len() {
+        let pc = &pointclouds[index];
+        let translation = match pc.transform.clone() {
+            Some(t) => t.translation,
+            None => e57::Translation {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            },
+        };
+
+        let station_point = SpatialPoint {
+            x: translation.x,
+            y: translation.y,
+            z: translation.z,
+        };
+
+        stations.insert(index, station_point);
+    }
+
+    #[cfg(feature = "stations")]
     create_station_file(output_path, stations)?;
 
     Ok(())

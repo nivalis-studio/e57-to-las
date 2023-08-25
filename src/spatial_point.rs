@@ -1,6 +1,8 @@
+#[cfg(feature = "stations")]
 use serde::Serialize;
 
-#[derive(Serialize, Debug)]
+#[cfg_attr(feature = "stations", derive(Serialize))]
+#[derive(Debug)]
 pub struct SpatialPoint {
     pub x: f64,
     pub y: f64,

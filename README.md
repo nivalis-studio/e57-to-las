@@ -16,7 +16,7 @@ A utility to convert E57 point cloud files to LAS format. It is based on the [E5
 
 - [x] Parallel processing using `rayon` for faster conversion.
 - [x] Error handling to ensure corrupted or unsupported files do not halt the process.
-- [x] Generates a JSON file (`stations.json`) containing station points after conversion.
+- [x] Optional generation of station files (`stations.json`), containing spatial coordinates of station points. This is activated by enabling the `stations` feature flag, and the station points are calculated based on the transformation translations of the point clouds.
 
 ## Usage
 
@@ -37,9 +37,6 @@ You can then use it in your code as follows:
 use e57_to_las::convert_file;
 
 fn main() {
-    let path = "path/to/input.e57";
-    let output = "path/to/output/directory";
-
     let input_path = String::from("path/to/input.e57");
     let output_path = String::from("path/to/output/directory");
     let number_of_threads = 0; // 0 = max possible
@@ -58,7 +55,7 @@ fn main() {
 1. Reads the provided E57 file.
 2. Loops through the point clouds in the E57 file in parallel.
 3. For each point cloud, it writes the points to a corresponding LAS file.
-4. After processing all point clouds, it calculates and writes the station points to `stations.json` in the output directory.
+4. Optionally, after processing all point clouds, it calculates and writes the station points to `stations.json` in the output directory (only if stations feature is enabled).
 
 ## Contribution
 
