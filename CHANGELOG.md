@@ -2,9 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.0](https://github.com/wildweb-io/e57_to_las/compare/v0.3.1..0.4.0) - 2023-08-25
+
+### ⛰️ Features
+
+- Make stations output file optional - ([aa620c9](https://github.com/wildweb-io/e57_to_las/commit/aa620c9fd689491549e72903b6cae3bb5a53c58e))
+
+### ⚙️ Miscellaneous Tasks
+
+- _(release)_ Bump to v0.4.0 - ([0b1215a](https://github.com/wildweb-io/e57_to_las/commit/0b1215a6d318b165bb1b8f98934be6f5103448e5))
+- Go back to hashmap of stations - ([d0128ae](https://github.com/wildweb-io/e57_to_las/commit/d0128ae421d66f7ad24fa86ac6401f93abea374e))
+- Cleanup - ([f77be3f](https://github.com/wildweb-io/e57_to_las/commit/f77be3fcd8402adbee0adbcca21ba0cc6dfa7200))
+- Move to vec stations and refactor - ([53ad789](https://github.com/wildweb-io/e57_to_las/commit/53ad78937a722898effe5451588905eef11436bd))
+
 ## [0.3.1](https://github.com/wildweb-io/e57_to_las/compare/v0.3.0..0.3.1) - 2023-08-23
 
-### ⛰️  Features
+### ⛰️ Features
 
 - Improve station points calculation - ([aa58476](https://github.com/wildweb-io/e57_to_las/commit/aa58476380ce8e82734dc7bc81ec7c5e4e8adc7b))
 
@@ -16,7 +29,7 @@ All notable changes to this project will be documented in this file.
 
 ## [0.3.0](https://github.com/wildweb-io/e57_to_las/compare/v0.2.1..0.3.0) - 2023-08-22
 
-### ⛰️  Features
+### ⛰️ Features
 
 - Extract `get_las_writer` fn - ([2bfe276](https://github.com/wildweb-io/e57_to_las/commit/2bfe2764c005327a0b58bf846f1943605607fe89))
 - Extract `create_station_file` function - ([24378fe](https://github.com/wildweb-io/e57_to_las/commit/24378fe805a594b4eff0e606c761af67478c51d3))
@@ -36,7 +49,7 @@ All notable changes to this project will be documented in this file.
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(release)* V0.2.1 - ([3df9268](https://github.com/wildweb-io/e57_to_las/commit/3df9268e0e59a81ddc815c40176ff0925f80bc50))
+- _(release)_ V0.2.1 - ([3df9268](https://github.com/wildweb-io/e57_to_las/commit/3df9268e0e59a81ddc815c40176ff0925f80bc50))
 - Refactor point conversion in separate mod - ([d400f96](https://github.com/wildweb-io/e57_to_las/commit/d400f96d6366bb90be7d6db17df1d8a3c0bd611e))
 - Remove potentially unused functions - ([950c663](https://github.com/wildweb-io/e57_to_las/commit/950c6631e56764c9f3cfd4333051e80b085cff7a))
 - Update point conversion to e57 version and example - ([a8b6a29](https://github.com/wildweb-io/e57_to_las/commit/a8b6a2951db114fe81eec1ea1d8ad9aa426c2311))
@@ -56,7 +69,7 @@ All notable changes to this project will be documented in this file.
 
 ## [0.2.1](https://github.com/wildweb-io/e57_to_las/compare/v0.2.0..v0.2.1) - 2023-08-22
 
-### ⛰️  Features
+### ⛰️ Features
 
 - Improve color and intensity calculations - ([aa6f164](https://github.com/wildweb-io/e57_to_las/commit/aa6f164739aeece57d4d2a5371786d16b65a5fff))
 
@@ -66,7 +79,7 @@ All notable changes to this project will be documented in this file.
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(release)* V0.2.1 - ([870565c](https://github.com/wildweb-io/e57_to_las/commit/870565c69e59fe4aa644c4add3aa77c86a9ae8c4))
+- _(release)_ V0.2.1 - ([870565c](https://github.com/wildweb-io/e57_to_las/commit/870565c69e59fe4aa644c4add3aa77c86a9ae8c4))
 - Update repo and bin name - ([321a55a](https://github.com/wildweb-io/e57_to_las/commit/321a55a12543af35a930c7696fc6f03353aa55d4))
 - Bump e57 crate to v0.7.0 - ([cb7f9e9](https://github.com/wildweb-io/e57_to_las/commit/cb7f9e98e51ad8794277c2b0785cc7a2d264a782))
 
