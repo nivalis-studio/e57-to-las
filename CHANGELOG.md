@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.1](https://github.com/wildweb-io/e57_to_las/compare/v0.4.0..0.4.1) - 2023-09-05
+
+### ⛰️ Features
+
+- Bump e57 crate version - ([8eac110](https://github.com/wildweb-io/e57_to_las/commit/8eac1108703f151c431a926941ebf127ecc1c6f6))
+
 ## [0.4.0](https://github.com/wildweb-io/e57_to_las/compare/v0.3.1..0.4.0) - 2023-08-25
 
 ### ⛰️ Features
