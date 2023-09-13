@@ -23,14 +23,19 @@ jobs:
         include:
           - target: aarch64-unknown-linux-gnu
             os: ubuntu-latest
+            features: stations
           - target: aarch64-apple-darwin
             os: macos-latest
+            features: stations
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
+            features: stations
           - target: x86_64-apple-darwin
             os: macos-latest
+            features: stations
           - target: universal-apple-darwin
             os: macos-latest
+            features: stations
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
@@ -39,4 +44,5 @@ jobs:
           bin: e57-to-las
           tar: unix
           zip: all
+          features: ${{ matrix.features || '' }}
           token: ${{ secrets.GITHUB_TOKEN }}
