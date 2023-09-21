@@ -1,17 +1,18 @@
 use anyhow::{Context, Result};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
-pub(crate) fn construct_las_path(output_path: &String, index: usize) -> Result<PathBuf> {
-    let output_sub_dir_path = Path::new(&output_path).join("las");
+pub(crate) fn create_path(path: PathBuf) -> Result<PathBuf> {
+    let parent = path.parent().ok_or(std::io::Error::new(
+        std::io::ErrorKind::Other,
+        "Invalid path.",
+    ))?;
 
-    std::fs::create_dir_all(&output_sub_dir_path).context(format!(
+    std::fs::create_dir_all(&parent).context(format!(
         "Couldn't find or create output dir {}.",
-        output_sub_dir_path
+        parent
             .to_str()
             .context("Invalid output dir path encoding.")?
     ))?;
 
-    let las_path = output_sub_dir_path.join(format!("{}{}", index, ".las"));
-
-    Ok(las_path)
+    Ok(path)
 }

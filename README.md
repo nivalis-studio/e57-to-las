@@ -16,7 +16,7 @@ A utility to convert E57 point cloud files to LAS format. It is based on the [E5
 
 - [x] Parallel processing using `rayon` for faster conversion.
 - [x] Error handling to ensure corrupted or unsupported files do not halt the process.
-- [x] Optional generation of station files (`stations.json`), containing spatial coordinates of station points. This is activated by enabling the `stations` feature flag, and the station points are calculated based on the transformation translations of the point clouds.
+- [x] Optional splitting of pointclouds in distinct LAS files and generation of station file (`stations.json`), containing spatial coordinates of station points. This is activated by adding the `--stations` flag, and the station points are calculated based on the transformation translations of the point clouds.
 
 ## Usage
 
@@ -40,7 +40,8 @@ fn main() {
     let input_path = String::from("path/to/input.e57");
     let output_path = String::from("path/to/output/directory");
     let number_of_threads = 0; // 0 = max possible
-    convert_file(input_path, output_path, number_of_threads);
+	  let as_stations = true;
+    convert_file(input_path, output_path, number_of_threads, as_stations);
 }
 ```
 
@@ -49,14 +50,7 @@ fn main() {
 - `-p, --path <path>`: The path to the input E57 file.
 - `-o, --output <output>`: The output directory for the converted LAS files (default: `./`).
 - `-T, --threads <threads>`: Number of threads for parallel processing (default: 0 = max possible).
-- `-S, --stations <stations>`: Whether to save stations (default: false)
-
-## How It Works
-
-1. Reads the provided E57 file.
-2. Loops through the point clouds in the E57 file in parallel.
-3. For each point cloud, it writes the points to a corresponding LAS file.
-4. Optionally, after processing all point clouds, it calculates and writes the station points to `stations.json` in the output directory (only if stations feature is enabled).
+- `-S, --stations <stations>`: Whether to convert e57 file in distinct stations or in single LAS file (default: false)
 
 ## Contribution
 
