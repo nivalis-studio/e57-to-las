@@ -5,7 +5,6 @@ use anyhow::{Context, Result};
 
 use crate::convert_pointcloud::convert_pointcloud;
 
-#[cfg(feature = "stations")]
 use crate::stations::save_stations;
 
 /// Converts a given e57 file into a series of point clouds and station files.
@@ -24,12 +23,14 @@ use crate::stations::save_stations;
 /// let input_path = String::from("path/to/input.e57");
 /// let output_path = String::from("path/to/output");
 /// let number_of_threads = 4;
-/// convert_file(input_path, output_path, number_of_threads);
+/// let save_sations = true;
+/// convert_file(input_path, output_path, number_of_threads, save_sations);
 /// ```
 pub fn convert_file(
     input_path: String,
     output_path: String,
     number_of_threads: usize,
+    save_sations: bool,
 ) -> Result<()> {
     rayon::ThreadPoolBuilder::new()
         .num_threads(number_of_threads)
@@ -57,7 +58,8 @@ pub fn convert_file(
         })
         .context("Error during the parallel processing of pointclouds")?;
 
-    #[cfg(feature = "stations")]
-    save_stations(output_path, pointclouds)?;
+    if save_sations {
+        save_stations(output_path, pointclouds)?;
+    }
     Ok(())
 }

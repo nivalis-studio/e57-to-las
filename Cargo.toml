@@ -17,11 +17,8 @@ authors = ["pnodet <paul.nodet@gmail.com>", "pnwa <pnwa@icloud.com>"]
 anyhow = "1.0.72"
 clap = { version = "4.3.21", features = ["derive"] }
 e57 = "0.9.0"
-serde_json = {version = "1.0.105", optional = true }
-serde = { version = "1.0.183", features = ["derive"], optional = true }
+serde_json = { version = "1.0.105" }
+serde = { version = "1.0.183", features = ["derive"] }
 las = "0.8.1"
 rayon = "1.7.0"
 uuid = { version = "1.4.1", features = ["v4"] }
-
-[features]
-stations = ["serde", "serde_json"]

@@ -15,11 +15,15 @@ struct Args {
 
     #[arg(short = 'T', long, default_value_t = 0)]
     threads: usize,
+
+    #[arg(short = 'S', long, default_value_t = false)]
+    stations: bool,
 }
 
 fn main() -> Result<()> {
     let args = Args::parse();
 
-    convert_file(args.path, args.output, args.threads).context("Failed to convert file")?;
+    convert_file(args.path, args.output, args.threads, args.stations)
+        .context("Failed to convert file")?;
     Ok(())
 }

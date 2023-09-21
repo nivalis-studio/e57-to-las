@@ -1,15 +1,9 @@
-#[cfg(feature = "stations")]
 extern crate rayon;
 
-#[cfg(feature = "stations")]
 use crate::spatial_point::SpatialPoint;
-#[cfg(feature = "stations")]
 use anyhow::Result;
-#[cfg(feature = "stations")]
 use e57::PointCloud;
-#[cfg(feature = "stations")]
 use serde_json;
-#[cfg(feature = "stations")]
 use std::{
     collections::HashMap,
     fs::File,
@@ -17,11 +11,9 @@ use std::{
     path::Path,
 };
 
-#[cfg(feature = "stations")]
 pub(crate) fn save_stations(output_path: String, pointclouds: Vec<PointCloud>) -> Result<()> {
     let mut stations: HashMap<usize, SpatialPoint> = HashMap::new();
 
-    #[cfg(feature = "stations")]
     for index in 0..pointclouds.len() {
         let pc = &pointclouds[index];
         let translation = match pc.transform.clone() {

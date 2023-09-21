@@ -49,6 +49,7 @@ fn main() {
 - `-p, --path <path>`: The path to the input E57 file.
 - `-o, --output <output>`: The output directory for the converted LAS files (default: `./`).
 - `-T, --threads <threads>`: Number of threads for parallel processing (default: 0 = max possible).
+- `-S, --stations <stations>`: Whether to save stations (default: false)
 
 ## How It Works
 
