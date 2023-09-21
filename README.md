@@ -40,7 +40,7 @@ fn main() {
     let input_path = String::from("path/to/input.e57");
     let output_path = String::from("path/to/output/directory");
     let number_of_threads = 0; // 0 = max possible
-		let as_stations = true;
+    let as_stations = true;
     convert_file(input_path, output_path, number_of_threads, as_stations);
 }
 ```
