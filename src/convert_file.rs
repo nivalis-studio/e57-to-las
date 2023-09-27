@@ -25,7 +25,7 @@ use crate::stations::save_stations;
 /// let input_path = String::from("path/to/input.e57");
 /// let output_path = String::from("path/to/output");
 /// let number_of_threads = 4;
-/// let as_stations true;
+/// let as_stations = true;
 /// convert_file(input_path, output_path, number_of_threads, as_stations);
 /// ```
 pub fn convert_file(
