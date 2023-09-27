@@ -36,20 +36,16 @@ pub fn convert_pointcloud(
     input_path: &String,
     output_path: &String,
 ) -> Result<()> {
-    let path = create_path(
-        Path::new(&output_path)
-            .join("las")
-            .join(format!("{}{}", index, ".las")),
-    )
-    .context("Unable to create path: ")?;
-
-    let mut writer = get_las_writer(&pointcloud.guid, path).context("Unable to create writer: ")?;
-
     let mut e57_reader = E57Reader::from_file(input_path).context("Failed to open e57 file: ")?;
 
     let pointcloud_reader = e57_reader
         .pointcloud_simple(pointcloud)
         .context("Unable to get point cloud iterator: ")?;
+
+    let (mut max_x, mut max_y, mut max_z) =
+        (f64::NEG_INFINITY, f64::NEG_INFINITY, f64::NEG_INFINITY);
+
+    let mut las_points: Vec<las::Point> = Vec::new();
 
     for p in pointcloud_reader {
         let point = p.context("Could not read point: ")?;
@@ -59,7 +55,26 @@ pub fn convert_pointcloud(
             None => continue,
         };
 
-        writer.write(las_point).context("Unable to write: ")?;
+        max_x = max_x.max(las_point.x);
+        max_y = max_y.max(las_point.y);
+        max_z = max_z.max(las_point.z);
+        las_points.push(las_point);
+    }
+
+    let max_cartesian = max_x.max(max_y).max(max_z);
+
+    let path = create_path(
+        Path::new(&output_path)
+            .join("las")
+            .join(format!("{}{}", index, ".las")),
+    )
+    .context("Unable to create path: ")?;
+
+    let mut writer = get_las_writer(&pointcloud.guid, path, max_cartesian)
+        .context("Unable to create writer: ")?;
+
+    for p in las_points {
+        writer.write(p).context("Unable to write: ")?;
     }
 
     writer.close().context("Failed to close the writer: ")?;
@@ -88,18 +103,15 @@ pub fn convert_pointclouds(
     e57_reader: E57Reader<BufReader<File>>,
     output_path: &String,
 ) -> Result<()> {
-    let path = create_path(
-        Path::new(&output_path)
-            .join("las")
-            .join(format!("{}{}", 0, ".las")),
-    )
-    .context("Unable to create path: ")?;
-
-    let writer =
-        Mutex::new(get_las_writer(e57_reader.guid(), path).context("Unable to create writer: ")?);
-
     let pointclouds = e57_reader.pointclouds();
-    let e57_reader = Mutex::new(e57_reader);
+    let guid = &e57_reader.guid().to_owned();
+    let e57_reader_mutex = Mutex::new(e57_reader);
+
+    let max_cartesian = f64::NEG_INFINITY;
+    let max_cartesian_mutex = Mutex::new(max_cartesian);
+    let las_points: Vec<las::Point> = Vec::new();
+
+    let las_points_mutex = Mutex::new(las_points);
 
     pointclouds
         .par_iter()
@@ -107,11 +119,13 @@ pub fn convert_pointclouds(
         .try_for_each(|(index, pointcloud)| -> Result<()> {
             println!("Saving pointclouds {}...", index);
 
-            let mut reader = e57_reader.lock().unwrap();
+            let mut reader = e57_reader_mutex.lock().unwrap();
             let pointcloud_reader = reader
                 .pointcloud_simple(pointcloud)
                 .context("Unable to get point cloud iterator: ")?;
 
+            let (mut max_x, mut max_y, mut max_z) =
+                (f64::NEG_INFINITY, f64::NEG_INFINITY, f64::NEG_INFINITY);
             for p in pointcloud_reader {
                 let point = p.context("Could not read point: ")?;
 
@@ -120,20 +134,34 @@ pub fn convert_pointclouds(
                     None => continue,
                 };
 
-                writer
-                    .lock()
-                    .unwrap()
-                    .write(las_point)
-                    .context("Unable to write: ")?;
+                max_x = max_x.max(las_point.x);
+                max_y = max_y.max(las_point.y);
+                max_z = max_z.max(las_point.z);
+                las_points_mutex.lock().unwrap().push(las_point);
             }
+
+            let mut guard = max_cartesian_mutex.lock().unwrap();
+            let current_max_cartesian = guard.max(max_x).max(max_y).max(max_z);
+            *guard = current_max_cartesian;
 
             Ok(())
         })
         .context("Error during the parallel processing of pointclouds")?;
-    writer
-        .lock()
-        .unwrap()
-        .close()
-        .context("Failed to close the writer: ")?;
+
+    let path = create_path(
+        Path::new(&output_path)
+            .join("las")
+            .join(format!("{}{}", 0, ".las")),
+    )
+    .context("Unable to create path: ")?;
+
+    let mut writer = get_las_writer(guid, path, max_cartesian_mutex.lock().unwrap().to_owned())
+        .context("Unable to create writer: ")?;
+
+    for p in las_points_mutex.lock().unwrap().to_owned() {
+        writer.write(p).context("Unable to write: ")?;
+    }
+
+    writer.close().context("Failed to close the writer: ")?;
     Ok(())
 }
