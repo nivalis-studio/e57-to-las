@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.4.3](https://github.com/wildweb-io/e57_to_las/compare/v0.4.1..0.4.2) - 2023-09-05
+## [0.4.3](https://github.com/wildweb-io/e57_to_las/compare/v0.4.1..0.4.2) - 2023-09-27
 
 ### Bug Fixes
 
