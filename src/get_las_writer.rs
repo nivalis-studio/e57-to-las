@@ -6,8 +6,8 @@ use uuid::Uuid;
 
 fn find_smallest_scale(x: f64) -> f64 {
     let mut scale = 0.001;
-    let min_i32 = i32::MIN as f64;
-    let max_i32 = i32::MAX as f64;
+    let min_i32 = f64::from(i32::MIN);
+    let max_i32 = f64::from(i32::MAX);
 
     while (x / scale).round() < min_i32 || (x / scale).round() > max_i32 {
         scale += 0.0001;
