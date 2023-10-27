@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.5](https://github.com/wildweb-io/e57_to_las/compare/v0.4.4..v0.4.5) - 2023-10-27
+
+### ⚙️ Miscellaneous Tasks
+
+- Remove stations feature from release workflow - ([6217b09](https://github.com/wildweb-io/e57_to_las/commit/6217b09e54e8e4242e4a7e692dc5a0cb99f1e6f0))
+
+### Deps
+
+- Bump e57rs - ([24463d3](https://github.com/wildweb-io/e57_to_las/commit/24463d3f6a81c7e15f4087ad6a2908ae2b2c499c))
+
+## [0.4.4](https://github.com/wildweb-io/e57_to_las/compare/v0.4.3..v0.4.4) - 2023-09-29
+
+### ⚙️ Miscellaneous Tasks
+
+- Fix i32 to f64 conversion - ([85f1654](https://github.com/wildweb-io/e57_to_las/commit/85f1654a015ff78c520654bde18bb51ffbdaa34e))
+- Update CHANGELOG - ([0e5ea75](https://github.com/wildweb-io/e57_to_las/commit/0e5ea7585955db7734a333bfcd42271b8308f863))
+
 ## [0.4.3](https://github.com/wildweb-io/e57_to_las/compare/v0.4.1..0.4.2) - 2023-09-27
 
 ### Bug Fixes
