@@ -17,7 +17,7 @@ fn find_smallest_scale(x: f64) -> f64 {
 }
 
 pub(crate) fn get_las_writer(
-    guid: impl Into<String>,
+    guid: Option<String>,
     output_path: PathBuf,
     max_cartesian: f64,
 ) -> Result<las::Writer<BufWriter<File>>> {
@@ -34,7 +34,8 @@ pub(crate) fn get_las_writer(
         y: transform,
         z: transform,
     };
-    builder.guid = Uuid::parse_str(&guid.into().replace("_", "-")).unwrap_or(Uuid::new_v4());
+    builder.guid = Uuid::parse_str(&guid.unwrap_or(Uuid::new_v4().to_string()).replace("_", "-"))
+        .unwrap_or(Uuid::new_v4());
 
     let header = builder.into_header().context("Error encountered: ")?;
 

@@ -70,7 +70,7 @@ pub fn convert_pointcloud(
     )
     .context("Unable to create path: ")?;
 
-    let mut writer = get_las_writer(&pointcloud.guid, path, max_cartesian)
+    let mut writer = get_las_writer(pointcloud.clone().guid, path, max_cartesian)
         .context("Unable to create writer: ")?;
 
     for p in las_points {
@@ -98,7 +98,6 @@ pub fn convert_pointcloud(
 /// let output_path = String::from("path/to/output");
 /// convert_pointclouds(e57_reader, output_path);
 /// ```
-
 pub fn convert_pointclouds(
     e57_reader: E57Reader<BufReader<File>>,
     output_path: &String,
@@ -155,8 +154,12 @@ pub fn convert_pointclouds(
     )
     .context("Unable to create path: ")?;
 
-    let mut writer = get_las_writer(guid, path, max_cartesian_mutex.lock().unwrap().to_owned())
-        .context("Unable to create writer: ")?;
+    let mut writer = get_las_writer(
+        Some(guid.to_owned()),
+        path,
+        max_cartesian_mutex.lock().unwrap().to_owned(),
+    )
+    .context("Unable to create writer: ")?;
 
     for p in las_points_mutex.lock().unwrap().to_owned() {
         writer.write(p).context("Unable to write: ")?;

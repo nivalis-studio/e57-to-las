@@ -206,9 +206,9 @@ dependencies = [
 
 [[package]]
 name = "e57"
-version = "0.9.1"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7132285ffa7cbde6f24b60eb9d84d94c294964ee2643cedec25346624791fb9"
+checksum = "71886780ba3310075b6c8221927c8db282460c5c7a7dfe7c1fee47af3b9586cd"
 dependencies = [
  "roxmltree",
 ]
