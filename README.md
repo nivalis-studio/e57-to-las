@@ -28,7 +28,7 @@ To use this as a crate in your own project, add the following to your `Cargo.tom
 
 ```toml
 [dependencies]
-e57-to-las = "0.3.0"
+e57-to-las = "0.4.6"
 ```
 
 You can then use it in your code as follows:
