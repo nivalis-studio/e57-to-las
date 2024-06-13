@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.7](https://github.com/wildweb-io/e57_to_las/compare/v0.4.6..v0.4.7) - 2024-06-13
+
+### ⛰️  Features
+
+- Bump dependencies - ([906f187](https://github.com/wildweb-io/e57_to_las/commit/906f187eb9d8d05f589c97d67463069db60937a4))
+
+### ⚙️ Miscellaneous Tasks
+
+- Update README - ([5430f44](https://github.com/wildweb-io/e57_to_las/commit/5430f44df4d5d7d58cf2957e6be44024d5e25d4f))
+
+## [0.4.6](https://github.com/wildweb-io/e57_to_las/compare/v0.4.5..v0.4.6) - 2024-04-17
+
+### ⛰️  Features
+
+- Bump dependencies - ([c7c13b7](https://github.com/wildweb-io/e57_to_las/commit/c7c13b71b90995c9b23196eea44472d383b459cd))
+
+### ⚙️ Miscellaneous Tasks
+
+- Update CHANGELOG.md - ([f2874b3](https://github.com/wildweb-io/e57_to_las/commit/f2874b3cf795d83d7b95eb792c7850912bf46422))
+- Bump version number - ([1ecb546](https://github.com/wildweb-io/e57_to_las/commit/1ecb5461e3bd74e13c73b2c3c472521dd45fa9d5))
+
+### Deps
+
+- Bump e57 crate version - ([9a9843d](https://github.com/wildweb-io/e57_to_las/commit/9a9843d8774c9b6cdd0b479d01919e4c45b91f42))
+
 ## [0.4.5](https://github.com/wildweb-io/e57_to_las/compare/v0.4.4..v0.4.5) - 2023-10-27
 
 ### ⚙️ Miscellaneous Tasks
