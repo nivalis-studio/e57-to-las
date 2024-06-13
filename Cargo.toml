@@ -1,12 +1,12 @@
 [package]
 name = "e57-to-las"
 description = "Convert E57 point cloud files to LAS"
-version = "0.4.6"
+version = "0.4.7"
 readme = "README.md"
 license = "MIT"
 edition = "2021"
-homepage = "https://github.com/wildweb-io/e57_to_las"
-repository = "https://github.com/wildweb-io/e57_to_las"
+homepage = "https://github.com/nivalis-studio/e57-to-las"
+repository = "https://github.com/nivalis-studio/e57-to-las"
 keywords = ["e57", "lidar", "pointclouds", "laserscanning", "geospatial"]
 categories = ["science::geo"]
 authors = ["pnodet <paul.nodet@gmail.com>", "pnwa <pnwa@icloud.com>"]
@@ -14,11 +14,11 @@ authors = ["pnodet <paul.nodet@gmail.com>", "pnwa <pnwa@icloud.com>"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0.82"
-clap = { version = "4.5.4", features = ["derive"] }
-e57 = "0.11.0"
-serde_json = { version = "1.0.116" }
-serde = { version = "1.0.198", features = ["derive"] }
-las = "0.8.5"
+anyhow = "1.0.86"
+clap = { version = "4.5.7", features = ["derive"] }
+e57 = "0.11.2"
+serde_json = { version = "1.0.117" }
+serde = { version = "1.0.203", features = ["derive"] }
+las = "0.8.8"
 rayon = "1.10.0"
 uuid = { version = "1.8.0", features = ["v4"] }

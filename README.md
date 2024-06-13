@@ -1,16 +1,16 @@
 # E57 to LAS conversion
 
-[![Crates.io](https://img.shields.io/crates/v/e57_to_las.svg)](https://crates.io/crates/e57_to_las)
+[![Crates.io](https://img.shields.io/crates/v/e57-to-las.svg)](https://crates.io/crates/e57-to-las)
 [![No Unsafe](https://img.shields.io/badge/unsafe-forbidden-brightgreen.svg)](https://doc.rust-lang.org/nomicon/meet-safe-and-unsafe.html)
-[![Documentation](https://docs.rs/e57-to-las/badge.svg)](https://docs.rs/e57_to_las)
+[![Documentation](https://docs.rs/e57-to-las/badge.svg)](https://docs.rs/e57-to-las)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Dependencies](https://deps.rs/repo/github/wildweb-io/e57_to_las/status.svg)](https://deps.rs/repo/github/wildweb-io/e57_to_las)
+[![Dependencies](https://deps.rs/repo/github/nivalis-studio/e57-to-las/status.svg)](https://deps.rs/repo/github/nivalis-studio/e57-to-las)
 
 A utility to convert E57 point cloud files to LAS format. It is based on the [E57 crate](https://github.com/cry-inc/e57) and the [LAS crate](https://github.com/gadomski/las-rs).
 
 ## About
 
-`e57_to_las` is an open-source tool designed to convert point cloud files in the E57 format to the LAS format. The conversion retains all the relevant point data and associated metadata, making it easier for users to work with point cloud data in environments that primarily support LAS. We use is to convert E57 files to LAS for use in [Potree](https://github.com/potree/potree/) for web-based point cloud visualization.
+`e57-to-las` is an open-source tool designed to convert point cloud files in the E57 format to the LAS format. The conversion retains all the relevant point data and associated metadata, making it easier for users to work with point cloud data in environments that primarily support LAS. We use is to convert E57 files to LAS for use in [Potree](https://github.com/potree/potree/) for web-based point cloud visualization.
 
 ## Features
 
