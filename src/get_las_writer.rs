@@ -20,9 +20,10 @@ pub(crate) fn get_las_writer(
     guid: Option<String>,
     output_path: PathBuf,
     max_cartesian: f64,
+    has_color: bool,
 ) -> Result<las::Writer<BufWriter<File>>> {
     let mut builder = las::Builder::from((1, 4));
-    builder.point_format.has_color = true;
+    builder.point_format.has_color = has_color;
     builder.generating_software = String::from("e57_to_las");
     let offset = 0.0;
 

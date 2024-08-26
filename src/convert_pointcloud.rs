@@ -45,9 +45,14 @@ pub fn convert_pointcloud(
         (f64::NEG_INFINITY, f64::NEG_INFINITY, f64::NEG_INFINITY);
 
     let mut las_points: Vec<las::Point> = Vec::new();
+    let has_color_mutex = Mutex::new(false);
 
     for p in pointcloud_reader {
         let point = p.context("Could not read point: ")?;
+
+        if point.color.is_some() {
+            *has_color_mutex.lock().unwrap() = true;
+        }
 
         let las_point = match convert_point(point) {
             Some(p) => p,
@@ -69,8 +74,13 @@ pub fn convert_pointcloud(
     )
     .context("Unable to create path: ")?;
 
-    let mut writer = get_las_writer(pointcloud.clone().guid, path, max_cartesian)
-        .context("Unable to create writer: ")?;
+    let mut writer = get_las_writer(
+        pointcloud.clone().guid,
+        path,
+        max_cartesian,
+        has_color_mutex.lock().unwrap().to_owned(),
+    )
+    .context("Unable to create writer: ")?;
 
     for p in las_points {
         writer.write_point(p).context("Unable to write: ")?;
@@ -108,8 +118,8 @@ pub fn convert_pointclouds(
     let max_cartesian = f64::NEG_INFINITY;
     let max_cartesian_mutex = Mutex::new(max_cartesian);
     let las_points: Vec<las::Point> = Vec::new();
-
     let las_points_mutex = Mutex::new(las_points);
+    let has_color_mutex = Mutex::new(false);
 
     pointclouds
         .par_iter()
@@ -126,6 +136,10 @@ pub fn convert_pointclouds(
                 (f64::NEG_INFINITY, f64::NEG_INFINITY, f64::NEG_INFINITY);
             for p in pointcloud_reader {
                 let point = p.context("Could not read point: ")?;
+
+                if point.color.is_some() {
+                    *has_color_mutex.lock().unwrap() = true;
+                }
 
                 let las_point = match convert_point(point) {
                     Some(p) => p,
@@ -144,7 +158,7 @@ pub fn convert_pointclouds(
 
             Ok(())
         })
-        .context("Error during the parallel processing of pointclouds")?;
+        .context("Error while converting pointcloud")?;
 
     let path = create_path(
         Path::new(&output_path)
@@ -157,6 +171,7 @@ pub fn convert_pointclouds(
         Some(guid.to_owned()),
         path,
         max_cartesian_mutex.lock().unwrap().to_owned(),
+        has_color_mutex.lock().unwrap().to_owned(),
     )
     .context("Unable to create writer: ")?;
 
