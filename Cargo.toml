@@ -1,7 +1,7 @@
 [package]
 name = "e57-to-las"
 description = "Convert E57 point cloud files to LAS"
-version = "0.5.0"
+version = "0.6.0"
 readme = "README.md"
 license = "MIT"
 edition = "2021"
