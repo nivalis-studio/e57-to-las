@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0](https://github.com/nivalis-studio/e57-to-las/compare/v0.5.0..v0.6.0) - 2024-08-26
+
+### 🐛 Bug Fixes
+
+- Add support for no-color las writer - ([9f55016](https://github.com/nivalis-studio/e57-to-las/commit/9f5501644b47668f73a6ad9c11e6c882a08982cd))
+
+### ⚙️ Miscellaneous Tasks
+
+- Bump version - ([f358569](https://github.com/nivalis-studio/e57-to-las/commit/f3585694d7b0e4ef314971605b5f4c4cf4495234))
+- Add bunny example data - ([9e16a6c](https://github.com/nivalis-studio/e57-to-las/commit/9e16a6cfc0fc5c2faa2eeb797bf64e66443faaf9))
+- Exclude examples files from crate - ([ae723cd](https://github.com/nivalis-studio/e57-to-las/commit/ae723cd55b1af24c2e8268c096f287c5422463dd))
+- Update changelog - ([2eca699](https://github.com/nivalis-studio/e57-to-las/commit/2eca699263b2ee99d13063833da310d78f71529e))
+
 ## [0.5.0](https://github.com/nivalis-studio/e57-to-las/compare/v0.4.7..v0.5.0) - 2024-08-26
 
 ### ⛰️  Features
