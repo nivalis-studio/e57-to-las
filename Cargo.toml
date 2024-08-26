@@ -10,6 +10,7 @@ repository = "https://github.com/nivalis-studio/e57-to-las"
 keywords = ["e57", "lidar", "pointclouds", "laserscanning", "geospatial"]
 categories = ["science::geo"]
 authors = ["pnodet <paul.nodet@gmail.com>", "pnwa <pnwa@icloud.com>"]
+exclude = ["/examples"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
