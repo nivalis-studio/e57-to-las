@@ -19,6 +19,6 @@ clap = { version = "4.5.7", features = ["derive"] }
 e57 = "0.11.2"
 serde_json = { version = "1.0.117" }
 serde = { version = "1.0.203", features = ["derive"] }
-las = "0.8.8"
+las = "0.9.1"
 rayon = "1.10.0"
 uuid = { version = "1.8.0", features = ["v4"] }

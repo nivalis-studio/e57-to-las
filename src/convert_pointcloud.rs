@@ -8,7 +8,6 @@ use crate::{convert_point::convert_point, utils::create_path};
 
 use anyhow::{Context, Result};
 use e57::{E57Reader, PointCloud};
-use las::Write;
 use rayon::prelude::*;
 
 /// Converts a point cloud to a LAS file.
@@ -74,7 +73,7 @@ pub fn convert_pointcloud(
         .context("Unable to create writer: ")?;
 
     for p in las_points {
-        writer.write(p).context("Unable to write: ")?;
+        writer.write_point(p).context("Unable to write: ")?;
     }
 
     writer.close().context("Failed to close the writer: ")?;
@@ -162,7 +161,7 @@ pub fn convert_pointclouds(
     .context("Unable to create writer: ")?;
 
     for p in las_points_mutex.lock().unwrap().to_owned() {
-        writer.write(p).context("Unable to write: ")?;
+        writer.write_point(p).context("Unable to write: ")?;
     }
 
     writer.close().context("Failed to close the writer: ")?;
