@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.1](https://github.com/nivalis-studio/e57-to-las/compare/v0.6.0..v0.6.1) - 2024-08-28
+
+### ⛰️  Features
+
+- Update crate e57 - ([e8cd453](https://github.com/nivalis-studio/e57-to-las/commit/e8cd453149d5a2c9a9f4533c5bf18a254983682b))
+
+### ⚙️ Miscellaneous Tasks
+
+- Update changelog - ([1fd1570](https://github.com/nivalis-studio/e57-to-las/commit/1fd1570b71419402c69643e23dd20e2300999e3c))
+
 ## [0.6.0](https://github.com/nivalis-studio/e57-to-las/compare/v0.5.0..v0.6.0) - 2024-08-26
 
 ### 🐛 Bug Fixes
