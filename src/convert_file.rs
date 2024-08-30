@@ -17,6 +17,7 @@ use crate::stations::save_stations;
 /// - `output_path`: The destination (output dir) where the files will be saved.
 /// - `number_of_threads`: The number of threads to be used for parallel processing.
 /// - `as_stations`: Whether to convert e57 file in distinct stations
+/// - `las_version`: Version of LAS format used for output file. Latest one is (1, 4).
 /// or in single LAS file
 ///
 /// # Example
@@ -26,13 +27,15 @@ use crate::stations::save_stations;
 /// let output_path = String::from("path/to/output");
 /// let number_of_threads = 4;
 /// let as_stations = true;
-/// convert_file(input_path, output_path, number_of_threads, as_stations);
+/// let las_version = (1, 4);
+/// convert_file(input_path, output_path, number_of_threads, as_stations, las_version);
 /// ```
 pub fn convert_file(
     input_path: String,
     output_path: String,
     number_of_threads: usize,
     as_stations: bool,
+    las_version: (u8, u8),
 ) -> Result<()> {
     rayon::ThreadPoolBuilder::new()
         .num_threads(number_of_threads)
@@ -54,7 +57,7 @@ pub fn convert_file(
             .try_for_each(|(index, pointcloud)| -> Result<()> {
                 println!("Saving pointcloud {}...", index);
 
-                convert_pointcloud(index, pointcloud, &input_path, &output_path)
+                convert_pointcloud(index, pointcloud, &input_path, &output_path, las_version)
                     .context(format!("Error while converting pointcloud {}", index))?;
 
                 Ok(())
@@ -63,8 +66,22 @@ pub fn convert_file(
 
         save_stations(output_path, pointclouds)?;
     } else {
-        convert_pointclouds(e57_reader, &output_path)
+        convert_pointclouds(e57_reader, &output_path, las_version)
             .context("Error during the parallel processing of pointclouds")?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_convert_bunny() {
+        let input_path = String::from("examples/bunnyDouble.e57");
+        let output_path = String::from("examples");
+        let number_of_threads = 4;
+        let as_stations = true;
+        let las_version = (1, 3);
+        convert_file(input_path, output_path, number_of_threads, as_stations, las_version);
+    }
 }
