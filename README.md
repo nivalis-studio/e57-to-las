@@ -41,7 +41,8 @@ fn main() {
     let output_path = String::from("path/to/output/directory");
     let number_of_threads = 0; // 0 = max possible
     let as_stations = true;
-    let _ = convert_file(input_path, output_path, number_of_threads, as_stations);
+    let las_version = (1, 4);
+    let _ = convert_file(input_path, output_path, number_of_threads, as_stations, las_version);
 }
 ```
 
@@ -50,7 +51,8 @@ fn main() {
 - `-p, --path <path>`: The path to the input E57 file.
 - `-o, --output <output>`: The output directory for the converted LAS files (default: `./`).
 - `-T, --threads <threads>`: Number of threads for parallel processing (default: 0 = max possible).
-- `-S, --stations <stations>`: Whether to convert e57 file in distinct stations (default: false)
+- `-S, --stations <stations>`: Whether to convert e57 file in distinct stations (default: false).
+- `-L, --las_version <las_version>`: Version of LAS format used for output file. Latest one is (1, 4). Currently possible: (1, 3) and (1, 4).
 
 ## Contribution
 
