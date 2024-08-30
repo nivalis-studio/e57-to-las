@@ -19,14 +19,27 @@ struct Args {
     #[arg(short = 'S', long, default_value_t = false)]
     stations: bool,
 
-    #[arg(short = 'L', long, default_value_t = (1, 4))]
-    las_version: (u8, u8),
+    #[arg(short = 'L', long, default_value_t = String::from("1.4"))]
+    las_version: String,
 }
 
 fn main() -> Result<()> {
     let args = Args::parse();
 
-    convert_file(args.path, args.output, args.threads, args.stations, args.las_version)
-        .context("Failed to convert file")?;
+    let las_version = args.las_version.split('.').collect::<Vec<&str>>();
+
+    let las_version = match las_version.as_slice() {
+        [major, minor] => (major.parse::<u8>().unwrap(), minor.parse::<u8>().unwrap()),
+        _ => (1, 4),
+    };
+
+    convert_file(
+        args.path,
+        args.output,
+        args.threads,
+        args.stations,
+        las_version,
+    )
+    .context("Failed to convert file")?;
     Ok(())
 }
