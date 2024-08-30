@@ -28,7 +28,7 @@ use crate::stations::save_stations;
 /// let number_of_threads = 4;
 /// let as_stations = true;
 /// let las_version = (1, 4);
-/// convert_file(input_path, output_path, number_of_threads, as_stations, las_version);
+/// let _ = convert_file(input_path, output_path, number_of_threads, as_stations, las_version);
 /// ```
 pub fn convert_file(
     input_path: String,
@@ -82,6 +82,6 @@ mod tests {
         let number_of_threads = 4;
         let as_stations = true;
         let las_version = (1, 3);
-        convert_file(input_path, output_path, number_of_threads, as_stations, las_version);
+        let _ = convert_file(input_path, output_path, number_of_threads, as_stations, las_version);
     }
 }
