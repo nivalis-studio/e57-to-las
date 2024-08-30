@@ -18,12 +18,15 @@ struct Args {
 
     #[arg(short = 'S', long, default_value_t = false)]
     stations: bool,
+
+    #[arg(short = 'L', long, default_value_t = (1, 4))]
+    las_version: (u8, u8),
 }
 
 fn main() -> Result<()> {
     let args = Args::parse();
 
-    convert_file(args.path, args.output, args.threads, args.stations)
+    convert_file(args.path, args.output, args.threads, args.stations, args.las_version)
         .context("Failed to convert file")?;
     Ok(())
 }
