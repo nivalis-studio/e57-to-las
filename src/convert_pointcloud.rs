@@ -8,6 +8,7 @@ use crate::{convert_point::convert_point, utils::create_path};
 
 use anyhow::{Context, Result};
 use e57::{E57Reader, PointCloud};
+use las::Version;
 use rayon::prelude::*;
 
 /// Converts a point cloud to a LAS file.
@@ -34,7 +35,7 @@ pub fn convert_pointcloud(
     pointcloud: &PointCloud,
     input_path: &String,
     output_path: &String,
-    las_version: (u8, u8)
+    las_version: (u8, u8),
 ) -> Result<()> {
     let mut e57_reader = E57Reader::from_file(input_path).context("Failed to open e57 file: ")?;
 
@@ -80,7 +81,7 @@ pub fn convert_pointcloud(
         path,
         max_cartesian,
         has_color_mutex.lock().unwrap().to_owned(),
-        las_version,
+        Version::new(las_version.0, las_version.1),
     )
     .context("Unable to create writer: ")?;
 
@@ -175,7 +176,7 @@ pub fn convert_pointclouds(
         path,
         max_cartesian_mutex.lock().unwrap().to_owned(),
         has_color_mutex.lock().unwrap().to_owned(),
-        las_version
+        Version::new(las_version.0, las_version.1),
     )
     .context("Unable to create writer: ")?;
 

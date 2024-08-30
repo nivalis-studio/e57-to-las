@@ -1,7 +1,7 @@
 use std::{fs::File, io::BufWriter, path::PathBuf};
 
 use anyhow::{Context, Result};
-use las::Vector;
+use las::{Vector, Version};
 use uuid::Uuid;
 
 fn find_smallest_scale(x: f64) -> f64 {
@@ -21,7 +21,7 @@ pub(crate) fn get_las_writer(
     output_path: PathBuf,
     max_cartesian: f64,
     has_color: bool,
-    las_version: (u8, u8),
+    las_version: Version,
 ) -> Result<las::Writer<BufWriter<File>>> {
     let mut builder = las::Builder::from(las_version);
     builder.point_format.has_color = has_color;

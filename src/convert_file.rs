@@ -44,8 +44,10 @@ pub fn convert_file(
             .context("Failed to initialize the global thread pool")?;
     }
 
-    if las_version != (1, 3) || las_version != (1, 4) {
-        return Err(anyhow!("Currently possible LAS versions: (1, 3) and (1, 4)."));
+    let allowed_versions = [(1, 0), (1, 1), (1, 2), (1, 3), (1, 4)];
+
+    if !allowed_versions.contains(&las_version) {
+        return Err(anyhow!("LAS version must be between 1.0 and 1.4"));
     }
 
     let e57_reader = e57::E57Reader::from_file(&input_path).context("Failed to open e57 file")?;
@@ -122,7 +124,7 @@ mod tests {
             );
             assert_eq!(
                 result.err().unwrap().to_string(),
-                "Currently possible LAS versions: (1, 3) and (1, 4)."
+                "LAS version must be between 1.0 and 1.4"
             );
         });
     }
