@@ -37,10 +37,12 @@ pub fn convert_file(
     as_stations: bool,
     las_version: (u8, u8),
 ) -> Result<()> {
-    rayon::ThreadPoolBuilder::new()
-        .num_threads(number_of_threads)
-        .build_global()
-        .context("Failed to initialize the global thread pool")?;
+    if rayon::current_num_threads() != number_of_threads {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(number_of_threads)
+            .build_global()
+            .context("Failed to initialize the global thread pool")?;
+    }
 
     if las_version != (1, 3) || las_version != (1, 4) {
         return Err(anyhow!("Currently possible LAS versions: (1, 3) and (1, 4)."));
@@ -79,24 +81,49 @@ pub fn convert_file(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rayon::ThreadPoolBuilder;
+
     #[test]
     fn test_convert_bunny() {
-        let input_path = String::from("examples/bunnyDouble.e57");
-        let output_path = String::from("examples");
-        let number_of_threads = 4;
-        let as_stations = true;
-        let las_version = (1, 3);
-        let _ = convert_file(input_path, output_path, number_of_threads, as_stations, las_version);
+        let pool = ThreadPoolBuilder::new().num_threads(4).build().unwrap();
+        pool.install(|| {
+            let input_path = String::from("examples/bunnyDouble.e57");
+            let output_path = String::from("examples");
+            let number_of_threads = 4;
+            let as_stations = true;
+            let las_version = (1, 3);
+            let result = convert_file(
+                input_path,
+                output_path,
+                number_of_threads,
+                as_stations,
+                las_version,
+            );
+
+            assert!(result.is_ok());
+        });
     }
 
     #[test]
-    fn test_wrong_las_version(){
-        let input_path = String::from("examples/bunnyDouble.e57");
-        let output_path = String::from("examples");
-        let number_of_threads = 4;
-        let as_stations = true;
-        let las_version = (0, 3);
-        let error = convert_file(input_path, output_path, number_of_threads, as_stations, las_version).err().unwrap();
-        assert_eq!(error.to_string(), "Currently possible LAS versions: (1, 3) and (1, 4).");
+    fn test_wrong_las_version() {
+        let pool = ThreadPoolBuilder::new().num_threads(4).build().unwrap();
+        pool.install(|| {
+            let input_path = String::from("examples/bunnyDouble.e57");
+            let output_path = String::from("examples");
+            let number_of_threads = 4;
+            let as_stations = true;
+            let las_version = (0, 3);
+            let result = convert_file(
+                input_path,
+                output_path,
+                number_of_threads,
+                as_stations,
+                las_version,
+            );
+            assert_eq!(
+                result.err().unwrap().to_string(),
+                "Currently possible LAS versions: (1, 3) and (1, 4)."
+            );
+        });
     }
 }
