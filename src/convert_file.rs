@@ -1,10 +1,11 @@
 extern crate rayon;
 use rayon::prelude::*;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 
 use crate::convert_pointcloud::{convert_pointcloud, convert_pointclouds};
 
+use crate::las_version;
 use crate::stations::save_stations;
 
 /// Converts a given e57 file into LAS format and, optionally, as stations.
@@ -35,19 +36,13 @@ pub fn convert_file(
     output_path: String,
     number_of_threads: usize,
     as_stations: bool,
-    las_version: (u8, u8),
+    las_version: las_version::Version,
 ) -> Result<()> {
     if rayon::current_num_threads() != number_of_threads {
         rayon::ThreadPoolBuilder::new()
             .num_threads(number_of_threads)
             .build_global()
             .context("Failed to initialize the global thread pool")?;
-    }
-
-    let allowed_versions = [(1, 0), (1, 1), (1, 2), (1, 3), (1, 4)];
-
-    if !allowed_versions.contains(&las_version) {
-        return Err(anyhow!("LAS version must be between 1.0 and 1.4"));
     }
 
     let e57_reader = e57::E57Reader::from_file(&input_path).context("Failed to open e57 file")?;
@@ -65,7 +60,7 @@ pub fn convert_file(
             .try_for_each(|(index, pointcloud)| -> Result<()> {
                 println!("Saving pointcloud {}...", index);
 
-                convert_pointcloud(index, pointcloud, &input_path, &output_path, las_version)
+                convert_pointcloud(index, pointcloud, &input_path, &output_path, &las_version)
                     .context(format!("Error while converting pointcloud {}", index))?;
 
                 Ok(())
@@ -74,7 +69,7 @@ pub fn convert_file(
 
         save_stations(output_path, pointclouds)?;
     } else {
-        convert_pointclouds(e57_reader, &output_path, las_version)
+        convert_pointclouds(e57_reader, &output_path, &las_version)
             .context("Error during the parallel processing of pointclouds")?;
     }
     Ok(())
@@ -93,7 +88,7 @@ mod tests {
             let output_path = String::from("examples");
             let number_of_threads = 4;
             let as_stations = true;
-            let las_version = (1, 3);
+            let las_version = las_version::Version::new(1, 3).unwrap();
             let result = convert_file(
                 input_path,
                 output_path,
@@ -103,29 +98,6 @@ mod tests {
             );
 
             assert!(result.is_ok());
-        });
-    }
-
-    #[test]
-    fn test_wrong_las_version() {
-        let pool = ThreadPoolBuilder::new().num_threads(4).build().unwrap();
-        pool.install(|| {
-            let input_path = String::from("examples/bunnyDouble.e57");
-            let output_path = String::from("examples");
-            let number_of_threads = 4;
-            let as_stations = true;
-            let las_version = (0, 3);
-            let result = convert_file(
-                input_path,
-                output_path,
-                number_of_threads,
-                as_stations,
-                las_version,
-            );
-            assert_eq!(
-                result.err().unwrap().to_string(),
-                "LAS version must be between 1.0 and 1.4"
-            );
         });
     }
 }

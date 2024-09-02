@@ -1,8 +1,8 @@
-extern crate rayon;
-use anyhow::{Context, Result};
+use anyhow::Context;
 use clap::Parser;
-
 use e57_to_las::convert_file;
+use e57_to_las::las_version::Version;
+use e57_to_las::Result;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -26,12 +26,7 @@ struct Args {
 fn main() -> Result<()> {
     let args = Args::parse();
 
-    let las_version = args.las_version.split('.').collect::<Vec<&str>>();
-
-    let las_version = match las_version.as_slice() {
-        [major, minor] => (major.parse::<u8>().unwrap(), minor.parse::<u8>().unwrap()),
-        _ => (1, 4),
-    };
+    let las_version = Version::try_from(args.las_version.as_str())?;
 
     convert_file(
         args.path,
@@ -41,5 +36,6 @@ fn main() -> Result<()> {
         las_version,
     )
     .context("Failed to convert file")?;
+
     Ok(())
 }
