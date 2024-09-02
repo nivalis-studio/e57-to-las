@@ -1,8 +1,6 @@
 use anyhow::Context;
 use clap::Parser;
-use e57_to_las::convert_file;
-use e57_to_las::las_version::Version;
-use e57_to_las::Result;
+use e57_to_las::{convert_file, LasVersion, Result};
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -26,7 +24,7 @@ struct Args {
 fn main() -> Result<()> {
     let args = Args::parse();
 
-    let las_version = Version::try_from(args.las_version.as_str())?;
+    let las_version = LasVersion::try_from(args.las_version.as_str())?;
 
     convert_file(
         args.path,

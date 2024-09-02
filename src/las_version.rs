@@ -2,12 +2,12 @@ use crate::{Error, Result};
 
 const ALLOWED_VERSIONS: [(u8, u8); 5] = [(1, 0), (1, 1), (1, 2), (1, 3), (1, 4)];
 
-pub struct Version {
+pub struct LasVersion {
     major: u8,
     minor: u8,
 }
 
-impl Version {
+impl LasVersion {
     pub fn new(major: u8, minor: u8) -> Result<Self> {
         if !ALLOWED_VERSIONS.contains(&(major, minor)) {
             return Err(Error::InvalidLasVersion(format!(
@@ -17,11 +17,11 @@ impl Version {
             )));
         }
 
-        Ok(Version { major, minor })
+        Ok(LasVersion { major, minor })
     }
 }
 
-impl TryFrom<&str> for Version {
+impl TryFrom<&str> for LasVersion {
     type Error = Error;
 
     fn try_from(value: &str) -> std::prelude::v1::Result<Self, Self::Error> {
@@ -44,8 +44,8 @@ impl TryFrom<&str> for Version {
     }
 }
 
-impl From<&Version> for las::Version {
-    fn from(value: &Version) -> Self {
+impl From<&LasVersion> for las::Version {
+    fn from(value: &LasVersion) -> Self {
         Self {
             major: value.major,
             minor: value.minor,
@@ -63,21 +63,21 @@ mod test {
 
     #[test]
     fn test_unsupported_las_version() {
-        let las_version = las_version::Version::new(2, 3);
+        let las_version = las_version::LasVersion::new(2, 3);
 
         assert!(las_version.is_err())
     }
 
     #[test]
     fn test_invalid_las_version_major() {
-        let las_version = las_version::Version::try_from("b.4");
+        let las_version = las_version::LasVersion::try_from("b.4");
 
         assert!(las_version.is_err())
     }
 
     #[test]
     fn test_invalid_las_version_minor() {
-        let las_version = las_version::Version::try_from("2.c");
+        let las_version = las_version::LasVersion::try_from("2.c");
 
         assert!(las_version.is_err())
     }

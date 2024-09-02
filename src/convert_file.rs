@@ -5,8 +5,8 @@ use anyhow::{Context, Result};
 
 use crate::convert_pointcloud::{convert_pointcloud, convert_pointclouds};
 
-use crate::las_version;
 use crate::stations::save_stations;
+use crate::LasVersion;
 
 /// Converts a given e57 file into LAS format and, optionally, as stations.
 ///
@@ -23,12 +23,13 @@ use crate::stations::save_stations;
 ///
 /// # Example
 /// ```
-/// use e57_to_las::convert_file;
+/// use e57_to_las::{convert_file, LasVersion};
+///
 /// let input_path = String::from("path/to/input.e57");
 /// let output_path = String::from("path/to/output");
 /// let number_of_threads = 4;
 /// let as_stations = true;
-/// let las_version = (1, 4);
+/// let las_version = LasVersion::new(1, 4).unwrap();
 /// let _ = convert_file(input_path, output_path, number_of_threads, as_stations, las_version);
 /// ```
 pub fn convert_file(
@@ -36,7 +37,7 @@ pub fn convert_file(
     output_path: String,
     number_of_threads: usize,
     as_stations: bool,
-    las_version: las_version::Version,
+    las_version: LasVersion,
 ) -> Result<()> {
     if rayon::current_num_threads() != number_of_threads {
         rayon::ThreadPoolBuilder::new()
@@ -88,7 +89,7 @@ mod tests {
             let output_path = String::from("examples");
             let number_of_threads = 4;
             let as_stations = true;
-            let las_version = las_version::Version::new(1, 3).unwrap();
+            let las_version = LasVersion::new(1, 3).unwrap();
             let result = convert_file(
                 input_path,
                 output_path,

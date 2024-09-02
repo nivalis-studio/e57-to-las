@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use las::Vector;
 use uuid::Uuid;
 
-use crate::las_version;
+use crate::LasVersion;
 
 fn find_smallest_scale(x: f64) -> f64 {
     let mut scale = 0.001;
@@ -23,7 +23,7 @@ pub(crate) fn get_las_writer(
     output_path: PathBuf,
     max_cartesian: f64,
     has_color: bool,
-    las_version: &las_version::Version,
+    las_version: &LasVersion,
 ) -> Result<las::Writer<BufWriter<File>>> {
     let mut builder = las::Builder::from(las_version);
     builder.point_format.has_color = has_color;
