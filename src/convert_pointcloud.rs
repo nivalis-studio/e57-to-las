@@ -4,7 +4,6 @@ use std::path::Path;
 use std::sync::Mutex;
 
 use crate::get_las_writer::get_las_writer;
-use crate::las_version;
 use crate::{convert_point::convert_point, utils::create_path, LasVersion};
 
 use anyhow::{Context, Result};
