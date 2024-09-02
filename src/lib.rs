@@ -2,11 +2,12 @@
 
 #![forbid(unsafe_code)]
 #![deny(
+    clippy::panic,
     clippy::expect_used,
     clippy::large_stack_arrays,
     clippy::large_types_passed_by_value
 )]
-#![warn(clippy::panic, clippy::unwrap_used)]
+#![warn(clippy::unwrap_used)]
 
 mod convert_file;
 mod convert_point;
