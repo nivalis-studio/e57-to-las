@@ -2,9 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0](https://github.com/nivalis-studio/e57-to-las/compare/v0.6.1..v0.7.0) - 2024-09-02
+
+### ⛰️ Features
+
+- Add custom las Version struct - ([196a581](https://github.com/nivalis-studio/e57-to-las/commit/196a581b2331d71c347012c6be6712eca6ae7cdb))
+- Add support for LAS version 1.0 to 1.4 - ([e0eff4e](https://github.com/nivalis-studio/e57-to-las/commit/e0eff4ea51e6a000adcb2cecbe9c06bdc8524b0b))
+
+### 🐛 Bug Fixes
+
+- Support version in cli args parsing - ([4dcdfe5](https://github.com/nivalis-studio/e57-to-las/commit/4dcdfe51f47dc9f97e3f88ab5f23f3c4a8dd8172))
+- Prevent unnecessary creation of new global ThreadPoolBuilder - ([025f723](https://github.com/nivalis-studio/e57-to-las/commit/025f7232ca4fb8d8b52fbf21645d3da8971bad01))
+
+### 🚜 Refactor
+
+- Remove unused import - ([ca9233e](https://github.com/nivalis-studio/e57-to-las/commit/ca9233e263028e9fa00fd73be9aedc28ddeea872))
+
+### ⚙️ Miscellaneous Tasks
+
+- Bump version - ([63af7e8](https://github.com/nivalis-studio/e57-to-las/commit/63af7e8d1921072ed98c6777c37bbfcb4f0a2153))
+- Update clippy rules - ([af3ee97](https://github.com/nivalis-studio/e57-to-las/commit/af3ee97bf71baf43b02838b0364df92703e9f13e))
+- Update README - ([5400678](https://github.com/nivalis-studio/e57-to-las/commit/5400678560b7dbf605c8b5d53934c8caf2eb40fe))
+- Rename LasVersion struct and fix doc - ([0c2f05c](https://github.com/nivalis-studio/e57-to-las/commit/0c2f05cac7b01eaf06cbd1f4a14048f0cefd2846))
+- Use lfs in ci - ([e16bb12](https://github.com/nivalis-studio/e57-to-las/commit/e16bb1247e4edf42e0b72d2b5bdf57e1fd1c27a3))
+- Update README - ([dee1b21](https://github.com/nivalis-studio/e57-to-las/commit/dee1b212247e9cfec2a0441f6a18ced43aec7ac6))
+
 ## [0.6.1](https://github.com/nivalis-studio/e57-to-las/compare/v0.6.0..v0.6.1) - 2024-08-28
 
-### ⛰️  Features
+### ⛰️ Features
 
 - Update crate e57 - ([e8cd453](https://github.com/nivalis-studio/e57-to-las/commit/e8cd453149d5a2c9a9f4533c5bf18a254983682b))
 
@@ -27,7 +52,7 @@ All notable changes to this project will be documented in this file.
 
 ## [0.5.0](https://github.com/nivalis-studio/e57-to-las/compare/v0.4.7..v0.5.0) - 2024-08-26
 
-### ⛰️  Features
+### ⛰️ Features
 
 - Bump e57 - ([aaf9f00](https://github.com/nivalis-studio/e57-to-las/commit/aaf9f00c4a88527a9dc30d090495997c173ee569))
 - Bump las to v0.9.1 - ([7280ecd](https://github.com/nivalis-studio/e57-to-las/commit/7280ecdee473c2eb43fc0bec1e7e0c9988e0f90d))
@@ -41,11 +66,11 @@ All notable changes to this project will be documented in this file.
 
 ## [0.4.7](https://github.com/nivalis-studio/e57-to-las/compare/v0.4.6..v0.4.7) - 2024-06-13
 
-### ⛰️  Features
+### ⛰️ Features
 
 - Bump dependencies - ([906f187](https://github.com/nivalis-studio/e57-to-las/commit/906f187eb9d8d05f589c97d67463069db60937a4))
 
-### ⛰️  Features
+### ⛰️ Features
 
 - Bump dependencies - ([906f187](https://github.com/nivalis-studio/e57_to_las/commit/906f187eb9d8d05f589c97d67463069db60937a4))
 
@@ -55,7 +80,7 @@ All notable changes to this project will be documented in this file.
 
 ## [0.4.6](https://github.com/nivalis-studio/e57_to_las/compare/v0.4.5..v0.4.6) - 2024-04-17
 
-### ⛰️  Features
+### ⛰️ Features
 
 - Bump dependencies - ([c7c13b7](https://github.com/nivalis-studio/e57_to_las/commit/c7c13b71b90995c9b23196eea44472d383b459cd))
 
