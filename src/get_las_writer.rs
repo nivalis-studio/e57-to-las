@@ -4,6 +4,8 @@ use anyhow::{Context, Result};
 use las::Vector;
 use uuid::Uuid;
 
+use crate::LasVersion;
+
 fn find_smallest_scale(x: f64) -> f64 {
     let mut scale = 0.001;
     let min_i32 = f64::from(i32::MIN);
@@ -21,8 +23,9 @@ pub(crate) fn get_las_writer(
     output_path: PathBuf,
     max_cartesian: f64,
     has_color: bool,
+    las_version: &LasVersion,
 ) -> Result<las::Writer<BufWriter<File>>> {
-    let mut builder = las::Builder::from((1, 4));
+    let mut builder = las::Builder::from(las_version);
     builder.point_format.has_color = has_color;
     builder.generating_software = String::from("e57_to_las");
     let offset = 0.0;

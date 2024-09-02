@@ -34,14 +34,15 @@ e57-to-las = "0.6.1"
 You can then use it in your code as follows:
 
 ```rust
-use e57_to_las::convert_file;
+use e57_to_las::{e57_to_las, LasVersion};
 
 fn main() {
     let input_path = String::from("path/to/input.e57");
     let output_path = String::from("path/to/output/directory");
     let number_of_threads = 0; // 0 = max possible
     let as_stations = true;
-    convert_file(input_path, output_path, number_of_threads, as_stations);
+    let las_version = LasVersion::new(1, 4).unwrap(); // 1.0 to 1.4
+    convert_file(input_path, output_path, number_of_threads, as_stations, las_version);
 }
 ```
 
@@ -50,7 +51,8 @@ fn main() {
 - `-p, --path <path>`: The path to the input E57 file.
 - `-o, --output <output>`: The output directory for the converted LAS files (default: `./`).
 - `-T, --threads <threads>`: Number of threads for parallel processing (default: 0 = max possible).
-- `-S, --stations <stations>`: Whether to convert e57 file in distinct stations (default: false)
+- `-S, --stations <stations>`: Whether to convert e57 file in distinct stations (default: false).
+- `-L, --las_version <las_version>`: Version of LAS format used for output file. Default one is (1, 4). Currently possible: (1, 0) to (1, 4).
 
 ## Contribution
 
