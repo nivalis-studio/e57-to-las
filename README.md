@@ -34,14 +34,14 @@ e57-to-las = "0.6.1"
 You can then use it in your code as follows:
 
 ```rust
-use e57_to_las::convert_file;
+use e57_to_las::{e57_to_las, LasVersion};
 
 fn main() {
     let input_path = String::from("path/to/input.e57");
     let output_path = String::from("path/to/output/directory");
     let number_of_threads = 0; // 0 = max possible
     let as_stations = true;
-    let las_version = (1, 4); // 1.0 to 1.4
+    let las_version = LasVersion::new(1, 4).unwrap(); // 1.0 to 1.4
     convert_file(input_path, output_path, number_of_threads, as_stations, las_version);
 }
 ```
