@@ -3,6 +3,7 @@ use std::ops::Deref;
 use e57::{CartesianCoordinate, Point as E57Point};
 use las::Point as LasPoint;
 
+#[derive(Debug)]
 pub struct Point(E57Point);
 
 impl Point {

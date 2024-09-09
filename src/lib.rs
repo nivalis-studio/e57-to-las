@@ -15,9 +15,9 @@ mod error;
 mod get_las_writer;
 mod las_version;
 mod point;
-mod spatial_point;
-mod stations;
 mod utils;
+
+pub mod stations;
 
 pub use self::convert_file::convert_file;
 pub use self::convert_pointcloud::convert_pointcloud;

@@ -1,8 +1,8 @@
 extern crate rayon;
 
-use crate::spatial_point::SpatialPoint;
 use anyhow::Result;
-use e57::PointCloud;
+use e57::{PointCloud, Translation};
+use serde::Serialize;
 use std::{
     collections::HashMap,
     fs::File,
@@ -10,33 +10,48 @@ use std::{
     path::Path,
 };
 
-pub(crate) fn save_stations(output_path: String, pointclouds: Vec<PointCloud>) -> Result<()> {
-    let mut stations: HashMap<usize, SpatialPoint> = HashMap::new();
+#[derive(Debug, Serialize)]
+pub struct StationPosition {
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
+}
 
-    for index in 0..pointclouds.len() {
-        let pc = &pointclouds[index];
-        let translation = match pc.transform.clone() {
-            Some(t) => t.translation,
-            None => e57::Translation {
-                x: 0.0,
-                y: 0.0,
-                z: 0.0,
-            },
-        };
+#[derive(Debug, Serialize)]
+pub struct Stations(HashMap<usize, StationPosition>);
 
-        let station_point = SpatialPoint {
-            x: translation.x,
-            y: translation.y,
-            z: translation.z,
-        };
+impl Stations {
+    pub fn save_to_file(&self, path: String) -> Result<()> {
+        let stations_file = File::create(Path::new(&path).join("stations.json"))?;
+        let mut writer = BufWriter::new(stations_file);
+        serde_json::to_writer(&mut writer, self)?;
 
-        stations.insert(index, station_point);
+        writer.flush()?;
+
+        Ok(())
     }
+}
 
-    let stations_file = File::create(Path::new(&output_path).join("stations.json"))?;
-    let mut writer = BufWriter::new(stations_file);
-    serde_json::to_writer(&mut writer, &stations)?;
-    writer.flush()?;
+impl From<Vec<PointCloud>> for Stations {
+    fn from(value: Vec<PointCloud>) -> Self {
+        let stations_map = value
+            .iter()
+            .enumerate()
+            .map(|(index, pc)| {
+                let transform = pc.transform.clone().unwrap_or_default();
 
-    Ok(())
+                let station_position = StationPosition::from(transform.translation);
+
+                (index, station_position)
+            })
+            .collect();
+
+        Self(stations_map)
+    }
+}
+
+impl From<Translation> for StationPosition {
+    fn from(Translation { x, y, z }: Translation) -> Self {
+        Self { x, y, z }
+    }
 }
