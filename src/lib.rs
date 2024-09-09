@@ -10,17 +10,17 @@
 #![warn(clippy::unwrap_used)]
 
 mod convert_file;
-mod convert_point;
 mod convert_pointcloud;
 mod error;
 mod get_las_writer;
 mod las_version;
+mod point;
 mod spatial_point;
 mod stations;
 mod utils;
 
 pub use self::convert_file::convert_file;
-pub use self::convert_point::convert_point;
 pub use self::convert_pointcloud::convert_pointcloud;
 pub use error::{Error, Result};
 pub use las_version::LasVersion;
+pub use point::Point;

@@ -4,10 +4,11 @@ use std::path::Path;
 use std::sync::Mutex;
 
 use crate::get_las_writer::get_las_writer;
-use crate::{convert_point::convert_point, utils::create_path, LasVersion};
+use crate::{utils::create_path, LasVersion, Point};
 
 use anyhow::{Context, Result};
 use e57::{E57Reader, PointCloud};
+use las::Point as LasPoint;
 use rayon::prelude::*;
 
 /// Converts a point cloud to a LAS file.
@@ -45,17 +46,17 @@ pub fn convert_pointcloud(
     let (mut max_x, mut max_y, mut max_z) =
         (f64::NEG_INFINITY, f64::NEG_INFINITY, f64::NEG_INFINITY);
 
-    let mut las_points: Vec<las::Point> = Vec::new();
+    let mut las_points: Vec<LasPoint> = Vec::new();
     let has_color_mutex = Mutex::new(false);
 
     for p in pointcloud_reader {
-        let point = p.context("Could not read point: ")?;
+        let point: Point = p.context("Could not read point: ")?.into();
 
         if point.color.is_some() {
             *has_color_mutex.lock().unwrap() = true;
         }
 
-        let las_point = match convert_point(point) {
+        let las_point: LasPoint = match point.into() {
             Some(p) => p,
             None => continue,
         };
@@ -120,7 +121,7 @@ pub fn convert_pointclouds(
 
     let max_cartesian = f64::NEG_INFINITY;
     let max_cartesian_mutex = Mutex::new(max_cartesian);
-    let las_points: Vec<las::Point> = Vec::new();
+    let las_points: Vec<LasPoint> = Vec::new();
     let las_points_mutex = Mutex::new(las_points);
     let has_color_mutex = Mutex::new(false);
 
@@ -138,13 +139,13 @@ pub fn convert_pointclouds(
             let (mut max_x, mut max_y, mut max_z) =
                 (f64::NEG_INFINITY, f64::NEG_INFINITY, f64::NEG_INFINITY);
             for p in pointcloud_reader {
-                let point = p.context("Could not read point: ")?;
+                let point: Point = p.context("Could not read point: ")?.into();
 
                 if point.color.is_some() {
                     *has_color_mutex.lock().unwrap() = true;
                 }
 
-                let las_point = match convert_point(point) {
+                let las_point: LasPoint = match point.into() {
                     Some(p) => p,
                     None => continue,
                 };
