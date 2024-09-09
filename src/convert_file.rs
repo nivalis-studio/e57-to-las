@@ -1,4 +1,7 @@
 extern crate rayon;
+use std::path::{Path, PathBuf};
+use std::str::FromStr;
+
 use rayon::prelude::*;
 
 use anyhow::{Context, Result};
@@ -69,7 +72,7 @@ pub fn convert_file(
             .context("Error during the parallel processing of pointclouds")?;
 
         let stations = Stations::from(pointclouds);
-        stations.save_to_file(output_path)?;
+        stations.save_to_file(&PathBuf::from(&output_path).join("stations.json"))?;
     } else {
         convert_pointclouds(e57_reader, &output_path, &las_version)
             .context("Error during the parallel processing of pointclouds")?;

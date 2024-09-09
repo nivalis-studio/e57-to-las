@@ -6,7 +6,7 @@ use serde::Serialize;
 use std::{
     collections::HashMap,
     fs::File,
-    io::{BufWriter, Write as IoWrite},
+    io::{BufWriter, Write},
     path::Path,
 };
 
@@ -21,8 +21,8 @@ pub struct StationPosition {
 pub struct Stations(HashMap<usize, StationPosition>);
 
 impl Stations {
-    pub fn save_to_file(&self, path: String) -> Result<()> {
-        let stations_file = File::create(Path::new(&path).join("stations.json"))?;
+    pub fn save_to_file(&self, path: &Path) -> Result<()> {
+        let stations_file = File::create(path)?;
         let mut writer = BufWriter::new(stations_file);
         serde_json::to_writer(&mut writer, self)?;
 
