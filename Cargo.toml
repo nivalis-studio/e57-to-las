@@ -24,3 +24,8 @@ las = "0.9.1"
 rayon = "1.10.0"
 uuid = { version = "1.8.0", features = ["v4"] }
 thiserror = { version = "1.0.63" }
+
+[profile.release]
+lto = true
+opt-level = 3
+codegen-units = 1
