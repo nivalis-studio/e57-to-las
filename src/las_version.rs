@@ -7,6 +7,14 @@ pub struct LasVersion {
     minor: u8,
 }
 
+impl Default for LasVersion {
+    fn default() -> Self {
+        let (major, minor) = ALLOWED_VERSIONS[4];
+
+        Self { major, minor }
+    }
+}
+
 impl LasVersion {
     pub fn new(major: u8, minor: u8) -> Result<Self> {
         if !ALLOWED_VERSIONS.contains(&(major, minor)) {

@@ -1,36 +1,14 @@
-use std::ops::Deref;
+use e57::CartesianCoordinate;
 
-use e57::{CartesianCoordinate, Point as E57Point};
-use las::Point as LasPoint;
-
-#[derive(Debug)]
-pub struct Point(E57Point);
-
-impl Point {
-    fn new(point: E57Point) -> Self {
-        Self(point)
-    }
+pub trait E57PointExt {
+    fn to_las_point(&self) -> Option<las::Point>;
 }
 
-impl Deref for Point {
-    type Target = E57Point;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl From<E57Point> for Point {
-    fn from(value: E57Point) -> Self {
-        Self::new(value)
-    }
-}
-
-impl From<Point> for Option<LasPoint> {
-    fn from(value: Point) -> Self {
+impl E57PointExt for e57::Point {
+    fn to_las_point(&self) -> Option<las::Point> {
         let mut las_point = las::Point::default();
 
-        if let CartesianCoordinate::Valid { x, y, z } = value.cartesian {
+        if let CartesianCoordinate::Valid { x, y, z } = self.cartesian {
             las_point.x = x;
             las_point.y = y;
             las_point.z = z;
@@ -38,7 +16,7 @@ impl From<Point> for Option<LasPoint> {
             return None;
         }
 
-        if let Some(ref color) = value.color {
+        if let Some(ref color) = self.color {
             las_point.color = Some(las::Color {
                 red: (color.red * u16::MAX as f32) as u16,
                 green: (color.green * u16::MAX as f32) as u16,
@@ -46,7 +24,7 @@ impl From<Point> for Option<LasPoint> {
             })
         }
 
-        if let Some(intensity) = value.intensity {
+        if let Some(intensity) = self.intensity {
             las_point.intensity = (intensity * u16::MAX as f32) as u16;
         }
 

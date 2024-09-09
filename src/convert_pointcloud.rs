@@ -4,7 +4,8 @@ use std::path::Path;
 use std::sync::Mutex;
 
 use crate::get_las_writer::get_las_writer;
-use crate::{utils::create_path, LasVersion, Point};
+use crate::E57PointExt;
+use crate::{utils::create_path, LasVersion};
 
 use anyhow::{Context, Result};
 use e57::{E57Reader, PointCloud};
@@ -50,13 +51,13 @@ pub fn convert_pointcloud(
     let has_color_mutex = Mutex::new(false);
 
     for p in pointcloud_reader {
-        let point: Point = p.context("Could not read point: ")?.into();
+        let point = p.context("Could not read point: ")?;
 
         if point.color.is_some() {
             *has_color_mutex.lock().unwrap() = true;
         }
 
-        let las_point: LasPoint = match point.into() {
+        let las_point = match point.to_las_point() {
             Some(p) => p,
             None => continue,
         };
@@ -139,13 +140,13 @@ pub fn convert_pointclouds(
             let (mut max_x, mut max_y, mut max_z) =
                 (f64::NEG_INFINITY, f64::NEG_INFINITY, f64::NEG_INFINITY);
             for p in pointcloud_reader {
-                let point: Point = p.context("Could not read point: ")?.into();
+                let point = p.context("Could not read point: ")?;
 
                 if point.color.is_some() {
                     *has_color_mutex.lock().unwrap() = true;
                 }
 
-                let las_point: LasPoint = match point.into() {
+                let las_point = match point.to_las_point() {
                     Some(p) => p,
                     None => continue,
                 };

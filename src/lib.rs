@@ -23,4 +23,4 @@ pub use self::convert_file::convert_file;
 pub use self::convert_pointcloud::convert_pointcloud;
 pub use error::{Error, Result};
 pub use las_version::LasVersion;
-pub use point::Point;
+pub use point::E57PointExt;
