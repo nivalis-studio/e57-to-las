@@ -1,11 +1,4 @@
 use anyhow::Context;
-use serde_json::{json, Value};
-use std::collections::HashMap;
-use std::fs::File;
-use std::io::{BufWriter, Write};
-use std::path::{Path, PathBuf};
-use std::sync::Mutex;
-
 use clap::Parser;
 use e57_to_las::{
     e57::{E57PointCloudSimpleExt, E57ReaderExt},
@@ -13,6 +6,12 @@ use e57_to_las::{
     Result,
 };
 use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
+use serde_json::{json, Value};
+use std::collections::HashMap;
+use std::fs::File;
+use std::io::{BufWriter, Write};
+use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 use uuid::Uuid;
 
 #[derive(Parser)]
@@ -53,16 +52,16 @@ fn convert_file_simple(args: Args) -> Result<()> {
     let mut e57_reader =
         e57::E57Reader::from_file(&args.path).context("Failed to open e57 file")?;
 
-    let las_points = e57_reader.to_las_points();
+    let las_points = e57_reader.x_to_las();
 
-    let mut header_builder = las_points.default_builder();
+    let mut header_builder = las_points.x_header_builder();
 
     if let Ok(uuid) = Uuid::parse_str(&e57_reader.guid().replace('_', "-")) {
         header_builder.guid = uuid
     };
 
     if let Some(version) = args.las_version {
-        header_builder.version = las::Version::try_from_str(&version)?;
+        header_builder.version = las::Version::x_try_from_str(&version)?;
     }
 
     let header = header_builder
@@ -97,16 +96,16 @@ fn convert_file_stations(args: Args) -> Result<()> {
             let mut reader = reader_mutex.lock().unwrap();
             let pointcloud_simple = reader.pointcloud_simple(pc).unwrap();
 
-            let las_points = pointcloud_simple.to_las_points();
+            let las_points = pointcloud_simple.x_to_las();
 
-            let mut header_builder = las_points.default_builder();
+            let mut header_builder = las_points.x_header_builder();
 
             if let Ok(uuid) = Uuid::parse_str(&reader.guid().replace('_', "-")) {
                 header_builder.guid = uuid
             };
 
             if let Some(version) = &args.las_version {
-                header_builder.version = las::Version::try_from_str(version)?;
+                header_builder.version = las::Version::x_try_from_str(version)?;
             }
 
             let header = header_builder

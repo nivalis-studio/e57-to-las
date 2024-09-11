@@ -6,13 +6,13 @@ pub trait LasVersionExt
 where
     Self: Sized,
 {
-    fn new_valid(major: u8, minor: u8) -> Result<Self>;
+    fn x_new_valid(major: u8, minor: u8) -> Result<Self>;
 
-    fn try_from_str(value: &str) -> Result<Self>;
+    fn x_try_from_str(value: &str) -> Result<Self>;
 }
 
 impl LasVersionExt for las::Version {
-    fn new_valid(major: u8, minor: u8) -> Result<Self> {
+    fn x_new_valid(major: u8, minor: u8) -> Result<Self> {
         if !ALLOWED_VERSIONS.contains(&(major, minor)) {
             return Err(Error::InvalidLasVersion(format!(
                 "must be between {} and {}",
@@ -24,7 +24,7 @@ impl LasVersionExt for las::Version {
         Ok(las::Version { major, minor })
     }
 
-    fn try_from_str(value: &str) -> Result<Self> {
+    fn x_try_from_str(value: &str) -> Result<Self> {
         let parts: Vec<&str> = value.split('.').collect();
 
         if parts.len() != 2 {
@@ -40,7 +40,7 @@ impl LasVersionExt for las::Version {
             .parse::<u8>()
             .map_err(|_| Error::InvalidLasVersion("invalid minor number".into()))?;
 
-        Self::new_valid(major, minor)
+        Self::x_new_valid(major, minor)
     }
 }
 

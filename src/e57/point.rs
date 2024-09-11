@@ -1,11 +1,11 @@
 use e57::CartesianCoordinate;
 
 pub trait E57PointExt {
-    fn to_las_point(&self) -> Option<las::Point>;
+    fn x_to_las(&self) -> Option<las::Point>;
 }
 
 impl E57PointExt for e57::Point {
-    fn to_las_point(&self) -> Option<las::Point> {
+    fn x_to_las(&self) -> Option<las::Point> {
         let mut las_point = las::Point::default();
 
         if let CartesianCoordinate::Valid { x, y, z } = self.cartesian {
