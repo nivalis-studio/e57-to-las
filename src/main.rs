@@ -3,7 +3,7 @@ use clap::Parser;
 use e57_to_las::{
     e57::{E57PointCloudSimpleExt, E57ReaderExt},
     las::{LasPointsExt, LasVersionExt},
-    Result,
+    Error, Result,
 };
 use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use serde_json::{json, Value};
@@ -67,7 +67,7 @@ fn convert_file_simple(args: Args) -> Result<()> {
     let mut e57_reader =
         e57::E57Reader::from_file(&args.path).context("Failed to open e57 file")?;
 
-    let las_points = e57_reader.x_to_las();
+    let las_points = e57_reader.x_to_las()?;
 
     let mut header_builder = las_points.x_header_builder();
 
@@ -106,8 +106,12 @@ fn convert_file_stations(args: Args) -> Result<()> {
         .par_iter()
         .enumerate()
         .try_for_each(|(i, pc)| -> Result<()> {
-            let mut reader = reader_mutex.lock().unwrap();
-            let pointcloud_simple = reader.pointcloud_simple(pc).unwrap();
+            let mut reader = reader_mutex
+                .lock()
+                .map_err(|_| Error::ReaderOperationFailed("Failed to acquire mutex lock".into()))?;
+            let pointcloud_simple = reader.pointcloud_simple(pc).map_err(|_| {
+                Error::ReaderOperationFailed("Failed to get point cloud reader".into())
+            })?;
 
             let las_points = pointcloud_simple.x_to_las();
 

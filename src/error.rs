@@ -5,17 +5,14 @@
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     /// Represents an invalid LAS version.
-    ///
-    /// This error occurs when a version is provided that does not match the allowed LAS versions.
-    /// The string provides additional context, such as the expected version range or format.
     #[error("Invalid LAS version {0}")]
     InvalidLasVersion(String),
 
+    /// Represents an error when an operation on the E57 reader failed.
+    #[error("Operation on E57 reader failed: {0}")]
+    ReaderOperationFailed(String),
+
     /// A wrapper for unexpected errors.
-    ///
-    /// This variant is used to propagate other errors that might arise during operations,
-    /// especially when interacting with external libraries or performing I/O operations.
-    /// It uses `anyhow::Error` to capture and handle these unexpected errors.
     #[error(transparent)]
     UnexpectedError(#[from] anyhow::Error),
 }
