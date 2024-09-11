@@ -1,4 +1,7 @@
-//! A Rust lib to convert E57 point cloud files to LAS format.
+//! A rust crate for converting E57 point cloud files to the LAS format.
+//!
+//! This crate provides extension traits for elements of both the [`e57`](https://docs.rs/e57/) and [`las`](https://docs.rs/las/) crates,
+//! enabling easier conversion from E57 to LAS.
 
 #![forbid(unsafe_code)]
 #![deny(
@@ -11,6 +14,8 @@
 
 mod error;
 
+/// extension traits for [`e57`](https://docs.rs/e57/) crate elements
 pub mod e57;
+/// extension traits for [`las`](https://docs.rs/las/) crate elements
 pub mod las;
 pub use error::{Error, Result};
