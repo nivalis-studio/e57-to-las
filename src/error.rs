@@ -8,10 +8,6 @@ pub enum Error {
     #[error("Invalid LAS version {0}")]
     InvalidLasVersion(String),
 
-    /// Represents an error when an operation on the E57 reader failed.
-    #[error("Operation on E57 reader failed: {0}")]
-    ReaderOperationFailed(String),
-
     /// A wrapper for unexpected errors.
     #[error(transparent)]
     UnexpectedError(#[from] anyhow::Error),

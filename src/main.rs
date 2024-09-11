@@ -1,4 +1,4 @@
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use clap::Parser;
 use e57_to_las::{
     e57::{E57PointCloudSimpleExt, E57ReaderExt},
@@ -108,10 +108,11 @@ fn convert_file_stations(args: Args) -> Result<()> {
         .try_for_each(|(i, pc)| -> Result<()> {
             let mut reader = reader_mutex
                 .lock()
-                .map_err(|_| Error::ReaderOperationFailed("Failed to acquire mutex lock".into()))?;
-            let pointcloud_simple = reader.pointcloud_simple(pc).map_err(|_| {
-                Error::ReaderOperationFailed("Failed to get point cloud reader".into())
-            })?;
+                .map_err(|_| Error::UnexpectedError(anyhow!("Failed to acquire mutex lock")))?;
+
+            let pointcloud_simple = reader
+                .pointcloud_simple(pc)
+                .context("Failed to get point cloud reader")?;
 
             let las_points = pointcloud_simple.x_to_las();
 

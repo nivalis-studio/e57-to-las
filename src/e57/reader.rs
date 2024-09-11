@@ -1,5 +1,6 @@
 use super::E57PointCloudSimpleExt;
 use crate::{Error, Result};
+use anyhow::{anyhow, Context};
 use e57::E57Reader;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::{
@@ -65,13 +66,13 @@ impl<T: Read + Seek + Send + Sync> E57ReaderExt for E57Reader<T> {
         let results: Result<Vec<las::Point>> = point_clouds
             .par_iter()
             .map(|pc| {
-                let mut reader = reader_mutex.lock().map_err(|_| {
-                    Error::ReaderOperationFailed("Failed to acquire mutex lock".into())
-                })?;
+                let mut reader = reader_mutex
+                    .lock()
+                    .map_err(|_| Error::UnexpectedError(anyhow!("Failed to acquire mutex lock")))?;
 
-                let point_cloud_simple = reader.pointcloud_simple(pc).map_err(|_| {
-                    Error::ReaderOperationFailed("Failed to get point cloud reader".into())
-                })?;
+                let point_cloud_simple = reader
+                    .pointcloud_simple(pc)
+                    .context("Failed to get point cloud reader")?;
 
                 Ok(point_cloud_simple.x_to_las())
             })
