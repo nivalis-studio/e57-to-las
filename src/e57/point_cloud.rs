@@ -2,7 +2,7 @@ use std::io::{Read, Seek};
 
 use e57::PointCloudReaderSimple;
 
-use super::point::E57PointExt;
+use super::E57PointExt;
 
 pub trait E57PointCloudSimpleExt<T: Seek + Read> {
     fn to_las_points(self) -> Vec<las::Point>;

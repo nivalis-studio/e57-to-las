@@ -8,10 +8,8 @@ use std::sync::Mutex;
 
 use clap::Parser;
 use e57_to_las::{
-    extensions::{
-        e57::{point_cloud::E57PointCloudSimpleExt, reader::E57ReaderExt},
-        las::{point::LasPointsExt, version::LasVersionExt},
-    },
+    e57::{E57PointCloudSimpleExt, E57ReaderExt},
+    las::{LasPointsExt, LasVersionExt},
     Result,
 };
 use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};

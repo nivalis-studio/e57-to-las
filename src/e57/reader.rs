@@ -6,7 +6,7 @@ use std::{
 use e57::E57Reader;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
-use super::point_cloud::E57PointCloudSimpleExt;
+use super::E57PointCloudSimpleExt;
 
 pub trait E57ReaderExt {
     fn to_las_points(&mut self) -> Vec<las::Point>;
