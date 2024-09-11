@@ -17,20 +17,35 @@ use uuid::Uuid;
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-    #[arg(short, long)]
+    #[arg(short, long, help = "path to the input E57 file")]
     path: String,
 
-    #[arg(short, long, default_value_t = String::from("./"))]
+    #[arg(short, long, default_value_t = String::from("./"), help = "output directory for the converted LAS files (default: `./`)")]
     output: String,
 
-    #[arg(short = 'T', long, default_value_t = 0)]
+    #[arg(
+        short = 'T',
+        long,
+        default_value_t = 0,
+        help = "number of threads for parallel processing (default: 0 = max possible)"
+    )]
     threads: usize,
 
-    #[arg(short = 'S', long, default_value_t = false)]
-    stations: bool,
+    #[arg(
+        short = 'L',
+        long,
+        help = "version of LAS format used for output file. Default one is (1, 4). Currently possible: (1, 0) to (1, 4)",
+        default_value_t = String::from("1.4")
+    )]
+    las_version: String,
 
-    #[arg(short = 'L', long)]
-    las_version: Option<String>,
+    #[arg(
+        short = 'S',
+        long,
+        default_value_t = false,
+        help = "whether to convert e57 pointclouds in distinct stations (default: false)"
+    )]
+    stations: bool,
 }
 
 fn main() -> Result<()> {
@@ -60,9 +75,7 @@ fn convert_file_simple(args: Args) -> Result<()> {
         header_builder.guid = uuid
     };
 
-    if let Some(version) = args.las_version {
-        header_builder.version = las::Version::x_try_from_str(&version)?;
-    }
+    header_builder.version = las::Version::x_try_from_str(&args.las_version)?;
 
     let header = header_builder
         .into_header()
@@ -104,9 +117,7 @@ fn convert_file_stations(args: Args) -> Result<()> {
                 header_builder.guid = uuid
             };
 
-            if let Some(version) = &args.las_version {
-                header_builder.version = las::Version::x_try_from_str(version)?;
-            }
+            header_builder.version = las::Version::x_try_from_str(&args.las_version)?;
 
             let header = header_builder
                 .into_header()
