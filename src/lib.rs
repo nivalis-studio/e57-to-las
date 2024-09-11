@@ -14,13 +14,12 @@ mod convert_pointcloud;
 mod error;
 mod get_las_writer;
 mod las_version;
-mod point;
 mod utils;
 
 pub mod stations;
 
+pub mod extensions;
 pub use self::convert_file::convert_file;
 pub use self::convert_pointcloud::convert_pointcloud;
 pub use error::{Error, Result};
 pub use las_version::LasVersion;
-pub use point::E57PointExt;

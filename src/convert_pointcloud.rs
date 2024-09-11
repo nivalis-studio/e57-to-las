@@ -3,8 +3,8 @@ use std::io::BufReader;
 use std::path::Path;
 use std::sync::Mutex;
 
+use crate::extensions::e57::point::E57PointExt;
 use crate::get_las_writer::get_las_writer;
-use crate::E57PointExt;
 use crate::{utils::create_path, LasVersion};
 
 use anyhow::{Context, Result};
