@@ -39,12 +39,10 @@ pub fn convert_file(
     as_stations: bool,
     las_version: LasVersion,
 ) -> Result<()> {
-    if rayon::current_num_threads() != number_of_threads {
-        rayon::ThreadPoolBuilder::new()
-            .num_threads(number_of_threads)
-            .build_global()
-            .context("Failed to initialize the global thread pool")?;
-    }
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(number_of_threads)
+        .build_global()
+        .context("Failed to initialize the global thread pool for rayon")?;
 
     let e57_reader = e57::E57Reader::from_file(&input_path).context("Failed to open e57 file")?;
 
