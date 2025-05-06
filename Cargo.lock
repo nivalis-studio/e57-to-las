@@ -214,7 +214,7 @@ dependencies = [
 
 [[package]]
 name = "e57-to-las"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -299,9 +299,9 @@ dependencies = [
 
 [[package]]
 name = "las"
-version = "0.9.3"
+version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f43f7d1b765fa34a4fb3f4f459704ac43c5d5dc75afaabbbf40944a5d82ae95b"
+checksum = "f3363b1d6ce3d4999d2ec42eced71e4b90a9ef7bacf9a9b7b873d501f3d13502"
 dependencies = [
  "byteorder",
  "chrono",
