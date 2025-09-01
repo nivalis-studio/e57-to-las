@@ -1,0 +1,161 @@
+// Old implementation for benchmarking comparison
+// This preserves the original memory-intensive approach
+
+#[allow(dead_code)]
+#[allow(clippy::unwrap_used)]
+
+use std::fs::File;
+use std::io::BufReader;
+use std::path::Path;
+use std::sync::Mutex;
+
+use crate::get_las_writer::get_las_writer;
+use crate::{convert_point::convert_point, utils::create_path, LasVersion};
+
+use anyhow::{Context, Result};
+use e57::{E57Reader, PointCloud};
+use rayon::prelude::*;
+
+/// Old version that collects all points in memory
+pub fn convert_pointcloud_old(
+    index: usize,
+    pointcloud: &PointCloud,
+    input_path: &String,
+    output_path: &String,
+    las_version: &LasVersion,
+) -> Result<()> {
+    let mut e57_reader = E57Reader::from_file(input_path).context("Failed to open e57 file: ")?;
+
+    let pointcloud_reader = e57_reader
+        .pointcloud_simple(pointcloud)
+        .context("Unable to get point cloud iterator: ")?;
+
+    let (mut max_x, mut max_y, mut max_z) =
+        (f64::NEG_INFINITY, f64::NEG_INFINITY, f64::NEG_INFINITY);
+
+    let mut las_points: Vec<las::Point> = Vec::new();
+    let has_color_mutex = Mutex::new(false);
+
+    for p in pointcloud_reader {
+        let point = p.context("Could not read point: ")?;
+
+        if point.color.is_some() {
+            *has_color_mutex.lock().unwrap() = true;
+        }
+
+        let las_point = match convert_point(point) {
+            Some(p) => p,
+            None => continue,
+        };
+
+        max_x = max_x.max(las_point.x);
+        max_y = max_y.max(las_point.y);
+        max_z = max_z.max(las_point.z);
+        las_points.push(las_point);
+    }
+
+    let max_cartesian = max_x.max(max_y).max(max_z);
+
+    let path = create_path(
+        Path::new(&output_path)
+            .join("las")
+            .join(format!("{}{}", index, ".las")),
+    )
+    .context("Unable to create path: ")?;
+
+    let mut writer = get_las_writer(
+        pointcloud.clone().guid,
+        path,
+        max_cartesian,
+        has_color_mutex.lock().unwrap().to_owned(),
+        las_version,
+    )
+    .context("Unable to create writer: ")?;
+
+    for p in las_points {
+        writer.write_point(p).context("Unable to write: ")?;
+    }
+
+    writer.close().context("Failed to close the writer: ")?;
+
+    Ok(())
+}
+
+/// Old version that collects all points from all clouds in memory
+pub fn convert_pointclouds_old(
+    e57_reader: E57Reader<BufReader<File>>,
+    output_path: &String,
+    las_version: &LasVersion,
+) -> Result<()> {
+    let pointclouds = e57_reader.pointclouds();
+    let guid = &e57_reader.guid().to_owned();
+    let e57_reader_mutex = Mutex::new(e57_reader);
+
+    let max_cartesian = f64::NEG_INFINITY;
+    let max_cartesian_mutex = Mutex::new(max_cartesian);
+    let las_points: Vec<las::Point> = Vec::new();
+    let las_points_mutex = Mutex::new(las_points);
+    let has_color_mutex = Mutex::new(false);
+
+    pointclouds
+        .par_iter()
+        .enumerate()
+        .try_for_each(|(index, pointcloud)| -> Result<()> {
+            println!("Saving pointclouds {}...", index);
+
+            let mut reader = e57_reader_mutex.lock().unwrap();
+            let pointcloud_reader = reader
+                .pointcloud_simple(pointcloud)
+                .context("Unable to get point cloud iterator: ")?;
+
+            let (mut max_x, mut max_y, mut max_z) =
+                (f64::NEG_INFINITY, f64::NEG_INFINITY, f64::NEG_INFINITY);
+            for p in pointcloud_reader {
+                let point = p.context("Could not read point: ")?;
+
+                if point.color.is_some() {
+                    *has_color_mutex.lock().unwrap() = true;
+                }
+
+                let las_point = match convert_point(point) {
+                    Some(p) => p,
+                    None => continue,
+                };
+
+                max_x = max_x.max(las_point.x);
+                max_y = max_y.max(las_point.y);
+                max_z = max_z.max(las_point.z);
+                las_points_mutex.lock().unwrap().push(las_point);
+            }
+
+            let mut guard = max_cartesian_mutex.lock().unwrap();
+            let current_max_cartesian = guard.max(max_x).max(max_y).max(max_z);
+            *guard = current_max_cartesian;
+
+            Ok(())
+        })
+        .context("Error while converting pointcloud")?;
+
+    let path = create_path(
+        Path::new(&output_path)
+            .join("las")
+            .join(format!("{}{}", 0, ".las")),
+    )
+    .context("Unable to create path: ")?;
+
+    let mut writer = get_las_writer(
+        Some(guid.to_owned()),
+        path,
+        max_cartesian_mutex.lock().unwrap().to_owned(),
+        has_color_mutex.lock().unwrap().to_owned(),
+        las_version,
+    )
+    .context("Unable to create writer: ")?;
+
+    for p in las_points_mutex.lock().unwrap().to_owned() {
+        writer.write_point(p).context("Unable to write: ")?;
+    }
+
+    writer.close().context("Failed to close the writer: ")?;
+    Ok(())
+}

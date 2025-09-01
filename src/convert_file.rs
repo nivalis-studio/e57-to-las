@@ -5,8 +5,8 @@ use anyhow::{Context, Result};
 
 use crate::convert_pointcloud::{convert_pointcloud, convert_pointclouds};
 
-use crate::stations::save_stations;
 use crate::LasVersion;
+use crate::stations::save_stations;
 
 /// Converts a given e57 file into LAS format and, optionally, as stations.
 ///
@@ -18,8 +18,8 @@ use crate::LasVersion;
 /// - `output_path`: The destination (output dir) where the files will be saved.
 /// - `number_of_threads`: The number of threads to be used for parallel processing.
 /// - `as_stations`: Whether to convert e57 file in distinct stations
+///   or in single LAS file
 /// - `las_version`: Version of LAS format used for output file. Latest one is (1, 4). Currently possible: (1, 3) and (1, 4).
-/// or in single LAS file
 ///
 /// # Example
 /// ```
@@ -39,10 +39,10 @@ pub fn convert_file(
     as_stations: bool,
     las_version: LasVersion,
 ) -> Result<()> {
-    rayon::ThreadPoolBuilder::new()
+    // Only initialize the global thread pool if it hasn't been initialized yet
+    let _ = rayon::ThreadPoolBuilder::new()
         .num_threads(number_of_threads)
-        .build_global()
-        .context("Failed to initialize the global thread pool for rayon")?;
+        .build_global();
 
     let e57_reader = e57::E57Reader::from_file(&input_path).context("Failed to open e57 file")?;
 
@@ -77,26 +77,22 @@ pub fn convert_file(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rayon::ThreadPoolBuilder;
 
     #[test]
     fn test_convert_bunny() {
-        let pool = ThreadPoolBuilder::new().num_threads(4).build().unwrap();
-        pool.install(|| {
-            let input_path = String::from("examples/bunnyDouble.e57");
-            let output_path = String::from("examples");
-            let number_of_threads = 4;
-            let as_stations = true;
-            let las_version = LasVersion::new(1, 3).unwrap();
-            let result = convert_file(
-                input_path,
-                output_path,
-                number_of_threads,
-                as_stations,
-                las_version,
-            );
+        let input_path = String::from("examples/bunnyDouble.e57");
+        let output_path = String::from("examples");
+        let number_of_threads = 4;
+        let as_stations = true;
+        let las_version = LasVersion::new(1, 3).unwrap();
+        let result = convert_file(
+            input_path,
+            output_path,
+            number_of_threads,
+            as_stations,
+            las_version,
+        );
 
-            assert!(result.is_ok());
-        });
+        assert!(result.is_ok());
     }
 }

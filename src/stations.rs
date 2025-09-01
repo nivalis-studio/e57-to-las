@@ -3,7 +3,6 @@ extern crate rayon;
 use crate::spatial_point::SpatialPoint;
 use anyhow::Result;
 use e57::PointCloud;
-use serde_json;
 use std::{
     collections::HashMap,
     fs::File,
@@ -14,8 +13,7 @@ use std::{
 pub(crate) fn save_stations(output_path: String, pointclouds: Vec<PointCloud>) -> Result<()> {
     let mut stations: HashMap<usize, SpatialPoint> = HashMap::new();
 
-    for index in 0..pointclouds.len() {
-        let pc = &pointclouds[index];
+    for (index, pc) in pointclouds.iter().enumerate() {
         let translation = match pc.transform.clone() {
             Some(t) => t.translation,
             None => e57::Translation {
