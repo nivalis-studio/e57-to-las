@@ -1,6 +1,6 @@
 use anyhow::Context;
 use clap::Parser;
-use e57_to_las::{convert_file, LasVersion, Result};
+use e57_to_las::{LasVersion, Result, convert_file};
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]

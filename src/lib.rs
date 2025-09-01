@@ -12,6 +12,8 @@
 mod convert_file;
 mod convert_point;
 mod convert_pointcloud;
+#[cfg(test)]
+mod convert_pointcloud_old;
 mod error;
 mod get_las_writer;
 mod las_version;

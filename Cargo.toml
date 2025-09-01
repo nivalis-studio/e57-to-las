@@ -25,7 +25,19 @@ rayon = "1.11.0"
 uuid = { version = "1.18.0", features = ["v4"] }
 thiserror = { version = "2.0.16" }
 
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+tempfile = "3.8"
+
 [profile.release]
 lto = true
 opt-level = 3
 codegen-units = 1
+
+[[bench]]
+name = "memory_benchmark"
+harness = false
+
+[[bench]]
+name = "comparison_benchmark"
+harness = false
