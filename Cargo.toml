@@ -36,3 +36,5 @@ codegen-units = 1
 [[bench]]
 name = "scale_finding"
 harness = false
+# Run with: cargo bench
+# Criterion will generate HTML reports in target/criterion/
