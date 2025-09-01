@@ -1,7 +1,8 @@
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 
 use crate::get_las_writer::get_las_writer;
 use crate::{convert_point::convert_point, utils::create_path, LasVersion};
@@ -46,13 +47,13 @@ pub fn convert_pointcloud(
         (f64::NEG_INFINITY, f64::NEG_INFINITY, f64::NEG_INFINITY);
 
     let mut las_points: Vec<las::Point> = Vec::new();
-    let has_color_mutex = Mutex::new(false);
+    let has_color = AtomicBool::new(false);
 
     for p in pointcloud_reader {
         let point = p.context("Could not read point: ")?;
 
         if point.color.is_some() {
-            *has_color_mutex.lock().unwrap() = true;
+            has_color.store(true, Ordering::Relaxed);
         }
 
         let las_point = match convert_point(point) {
@@ -79,7 +80,7 @@ pub fn convert_pointcloud(
         pointcloud.clone().guid,
         path,
         max_cartesian,
-        has_color_mutex.lock().unwrap().to_owned(),
+        has_color.load(Ordering::Relaxed),
         las_version,
     )
     .context("Unable to create writer: ")?;
@@ -122,7 +123,7 @@ pub fn convert_pointclouds(
     let max_cartesian_mutex = Mutex::new(max_cartesian);
     let las_points: Vec<las::Point> = Vec::new();
     let las_points_mutex = Mutex::new(las_points);
-    let has_color_mutex = Mutex::new(false);
+    let has_color = Arc::new(AtomicBool::new(false));
 
     pointclouds
         .par_iter()
@@ -141,7 +142,7 @@ pub fn convert_pointclouds(
                 let point = p.context("Could not read point: ")?;
 
                 if point.color.is_some() {
-                    *has_color_mutex.lock().unwrap() = true;
+                    has_color.store(true, Ordering::Relaxed);
                 }
 
                 let las_point = match convert_point(point) {
@@ -174,7 +175,7 @@ pub fn convert_pointclouds(
         Some(guid.to_owned()),
         path,
         max_cartesian_mutex.lock().unwrap().to_owned(),
-        has_color_mutex.lock().unwrap().to_owned(),
+        has_color.load(Ordering::Relaxed),
         las_version,
     )
     .context("Unable to create writer: ")?;
