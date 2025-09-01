@@ -10,7 +10,10 @@ use std::{
     path::Path,
 };
 
-pub(crate) fn save_stations<P: AsRef<Path>>(output_path: P, pointclouds: &[PointCloud]) -> Result<()> {
+pub(crate) fn save_stations<P: AsRef<Path>>(
+    output_path: P,
+    pointclouds: &[PointCloud],
+) -> Result<()> {
     let stations: BTreeMap<usize, SpatialPoint> = pointclouds
         .iter()
         .enumerate()
@@ -27,7 +30,7 @@ pub(crate) fn save_stations<P: AsRef<Path>>(output_path: P, pointclouds: &[Point
         })
         .collect();
 
-    let stations_file = File::create(Path::new(&output_path).join("stations.json"))?;
+    let stations_file = File::create(output_path.as_ref().join("stations.json"))?;
     let mut writer = BufWriter::new(stations_file);
     serde_json::to_writer(&mut writer, &stations)?;
     writer.flush()?;
