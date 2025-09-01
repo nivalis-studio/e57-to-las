@@ -4,32 +4,24 @@ use crate::spatial_point::SpatialPoint;
 use anyhow::Result;
 use e57::PointCloud;
 use std::{
-    collections::HashMap,
+    collections::BTreeMap,
     fs::File,
-    io::{BufWriter, Write as IoWrite},
+    io::{BufWriter, Write as _},
     path::Path,
 };
 
-pub(crate) fn save_stations(output_path: String, pointclouds: Vec<PointCloud>) -> Result<()> {
-    let stations: HashMap<usize, SpatialPoint> = pointclouds
+pub(crate) fn save_stations<P: AsRef<Path>>(output_path: P, pointclouds: &[PointCloud]) -> Result<()> {
+    let stations: BTreeMap<usize, SpatialPoint> = pointclouds
         .iter()
         .enumerate()
         .map(|(index, pc)| {
-            let translation = pc
+            let (x, y, z) = pc
                 .transform
                 .as_ref()
-                .map(|t| &t.translation)
-                .unwrap_or(&e57::Translation {
-                    x: 0.0,
-                    y: 0.0,
-                    z: 0.0,
-                });
+                .map(|t| (t.translation.x, t.translation.y, t.translation.z))
+                .unwrap_or((0.0, 0.0, 0.0));
 
-            let station_point = SpatialPoint {
-                x: translation.x,
-                y: translation.y,
-                z: translation.z,
-            };
+            let station_point = SpatialPoint { x, y, z };
 
             (index, station_point)
         })
