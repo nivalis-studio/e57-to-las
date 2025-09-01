@@ -23,11 +23,18 @@ use rayon::prelude::*;
 ///
 /// # Example
 /// ```ignore
-/// use e57_to_las::convert_pointcloud;
-/// let pointcloud = e57::Pointcloud {  };
-/// let input_path = std::path::Path::new("path/to/input.e57");
-/// let output_path = std::path::Path::new("path/to/output");
-/// convert_pointcloud(0, &pointcloud, input_path, output_path, &las_version);
+/// use std::path::Path;
+/// use e57_to_las::{convert_pointcloud, LasVersion};
+/// 
+/// # fn example() -> anyhow::Result<()> {
+/// let input_path = Path::new("path/to/input.e57");
+/// let output_path = Path::new("path/to/output");
+/// let las_version = LasVersion::new(1, 4)?;
+/// // pointcloud would be obtained from E57Reader in practice
+/// # let pointcloud = todo!();
+/// convert_pointcloud(0, &pointcloud, input_path, output_path, &las_version)?;
+/// # Ok(())
+/// # }
 /// ```
 pub fn convert_pointcloud(
     index: usize,
@@ -104,10 +111,18 @@ pub fn convert_pointcloud(
 ///
 /// # Example
 /// ```ignore
-/// use e57_to_las::convert_pointclouds;
-/// let e57_reader = e57::E57Reader::from_file("path/to/input.e56").context("Failed to open e57 file")?;
-/// let output_path = std::path::Path::new("path/to/output");
-/// convert_pointclouds(e57_reader, output_path, &las_version);
+/// use std::path::Path;
+/// use e57_to_las::{convert_pointclouds, LasVersion};
+/// use anyhow::Context;
+/// 
+/// # fn example() -> anyhow::Result<()> {
+/// let input_path = Path::new("path/to/input.e57");
+/// let e57_reader = e57::E57Reader::from_file(input_path).context("Failed to open e57 file")?;
+/// let output_path = Path::new("path/to/output");
+/// let las_version = LasVersion::new(1, 4)?;
+/// convert_pointclouds(e57_reader, output_path, &las_version)?;
+/// # Ok(())
+/// # }
 /// ```
 pub fn convert_pointclouds(
     e57_reader: E57Reader<BufReader<File>>,
