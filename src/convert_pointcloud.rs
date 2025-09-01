@@ -25,15 +25,15 @@ use rayon::prelude::*;
 /// ```ignore
 /// use e57_to_las::convert_pointcloud;
 /// let pointcloud = e57::Pointcloud {  };
-/// let input_path = String::from("path/to/input.e57");
-/// let output_path = String::from("path/to/output");
-/// convert_pointcloud(0, &pointcloud, input_path, output_path);
+/// let input_path = std::path::Path::new("path/to/input.e57");
+/// let output_path = std::path::Path::new("path/to/output");
+/// convert_pointcloud(0, &pointcloud, input_path, output_path, &las_version);
 /// ```
 pub fn convert_pointcloud(
     index: usize,
     pointcloud: &PointCloud,
-    input_path: &String,
-    output_path: &String,
+    input_path: &Path,
+    output_path: &Path,
     las_version: &LasVersion,
 ) -> Result<()> {
     let mut e57_reader = E57Reader::from_file(input_path).context("Failed to open e57 file: ")?;
@@ -69,7 +69,7 @@ pub fn convert_pointcloud(
     let max_cartesian = max_x.max(max_y).max(max_z);
 
     let path = create_path(
-        Path::new(&output_path)
+        output_path
             .join("las")
             .join(format!("{}{}", index, ".las")),
     )
@@ -106,12 +106,12 @@ pub fn convert_pointcloud(
 /// ```ignore
 /// use e57_to_las::convert_pointclouds;
 /// let e57_reader = e57::E57Reader::from_file("path/to/input.e56").context("Failed to open e57 file")?;
-/// let output_path = String::from("path/to/output");
-/// convert_pointclouds(e57_reader, output_path);
+/// let output_path = std::path::Path::new("path/to/output");
+/// convert_pointclouds(e57_reader, output_path, &las_version);
 /// ```
 pub fn convert_pointclouds(
     e57_reader: E57Reader<BufReader<File>>,
-    output_path: &String,
+    output_path: &Path,
     las_version: &LasVersion,
 ) -> Result<()> {
     let pointclouds = e57_reader.pointclouds();
@@ -164,7 +164,7 @@ pub fn convert_pointclouds(
         .context("Error while converting pointcloud")?;
 
     let path = create_path(
-        Path::new(&output_path)
+        output_path
             .join("las")
             .join(format!("{}{}", 0, ".las")),
     )
