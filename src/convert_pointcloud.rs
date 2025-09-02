@@ -52,7 +52,9 @@ pub fn convert_pointcloud(
         let point = p.context("Could not read point: ")?;
 
         if point.color.is_some() {
-            *has_color_mutex.lock().unwrap() = true;
+            *has_color_mutex
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner()) = true;
         }
 
         let las_point = match convert_point(point) {
@@ -75,11 +77,15 @@ pub fn convert_pointcloud(
     )
     .context("Unable to create path: ")?;
 
+    let has_color = *has_color_mutex
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    
     let mut writer = get_las_writer(
         pointcloud.clone().guid,
         path,
         max_cartesian,
-        has_color_mutex.lock().unwrap().to_owned(),
+        has_color,
         las_version,
     )
     .context("Unable to create writer: ")?;
@@ -130,7 +136,9 @@ pub fn convert_pointclouds(
         .try_for_each(|(index, pointcloud)| -> Result<()> {
             println!("Saving pointclouds {}...", index);
 
-            let mut reader = e57_reader_mutex.lock().unwrap();
+            let mut reader = e57_reader_mutex
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
             let pointcloud_reader = reader
                 .pointcloud_simple(pointcloud)
                 .context("Unable to get point cloud iterator: ")?;
@@ -141,7 +149,9 @@ pub fn convert_pointclouds(
                 let point = p.context("Could not read point: ")?;
 
                 if point.color.is_some() {
-                    *has_color_mutex.lock().unwrap() = true;
+                    *has_color_mutex
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner()) = true;
                 }
 
                 let las_point = match convert_point(point) {
@@ -152,10 +162,15 @@ pub fn convert_pointclouds(
                 max_x = max_x.max(las_point.x);
                 max_y = max_y.max(las_point.y);
                 max_z = max_z.max(las_point.z);
-                las_points_mutex.lock().unwrap().push(las_point);
+                las_points_mutex
+                    .lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner())
+                    .push(las_point);
             }
 
-            let mut guard = max_cartesian_mutex.lock().unwrap();
+            let mut guard = max_cartesian_mutex
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
             let current_max_cartesian = guard.max(max_x).max(max_y).max(max_z);
             *guard = current_max_cartesian;
 
@@ -170,16 +185,29 @@ pub fn convert_pointclouds(
     )
     .context("Unable to create path: ")?;
 
+    let max_cartesian = *max_cartesian_mutex
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    
+    let has_color = *has_color_mutex
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    
     let mut writer = get_las_writer(
         Some(guid.to_owned()),
         path,
-        max_cartesian_mutex.lock().unwrap().to_owned(),
-        has_color_mutex.lock().unwrap().to_owned(),
+        max_cartesian,
+        has_color,
         las_version,
     )
     .context("Unable to create writer: ")?;
 
-    for p in las_points_mutex.lock().unwrap().to_owned() {
+    let las_points = las_points_mutex
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .clone();
+    
+    for p in las_points {
         writer.write_point(p).context("Unable to write: ")?;
     }
 

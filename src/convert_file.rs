@@ -29,7 +29,7 @@ use crate::LasVersion;
 /// let output_path = String::from("path/to/output");
 /// let number_of_threads = 4;
 /// let as_stations = true;
-/// let las_version = LasVersion::new(1, 4).unwrap();
+/// let las_version = LasVersion::new(1, 4).expect("Failed to create LAS version");
 /// let _ = convert_file(input_path, output_path, number_of_threads, as_stations, las_version);
 /// ```
 pub fn convert_file(
@@ -81,13 +81,16 @@ mod tests {
 
     #[test]
     fn test_convert_bunny() {
-        let pool = ThreadPoolBuilder::new().num_threads(4).build().unwrap();
+        let pool = ThreadPoolBuilder::new()
+            .num_threads(4)
+            .build()
+            .expect("Failed to build thread pool");
         pool.install(|| {
             let input_path = String::from("examples/bunnyDouble.e57");
             let output_path = String::from("examples");
             let number_of_threads = 4;
             let as_stations = true;
-            let las_version = LasVersion::new(1, 3).unwrap();
+            let las_version = LasVersion::new(1, 3).expect("Failed to create LAS version");
             let result = convert_file(
                 input_path,
                 output_path,

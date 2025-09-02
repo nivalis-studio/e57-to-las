@@ -41,7 +41,7 @@ fn main() {
     let output_path = String::from("path/to/output/directory");
     let number_of_threads = 0; // 0 = max possible
     let as_stations = true;
-    let las_version = LasVersion::new(1, 4).unwrap(); // 1.0 to 1.4
+    let las_version = LasVersion::new(1, 4).expect("Failed to create LAS version"); // 1.0 to 1.4
     convert_file(input_path, output_path, number_of_threads, as_stations, las_version);
 }
 ```
