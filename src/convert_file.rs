@@ -1,5 +1,6 @@
 extern crate rayon;
 use rayon::prelude::*;
+use std::path::Path;
 
 use anyhow::{Context, Result};
 
@@ -59,7 +60,7 @@ pub fn convert_file(
             .try_for_each(|(index, pointcloud)| -> Result<()> {
                 println!("Saving pointcloud {}...", index);
 
-                convert_pointcloud(index, pointcloud, &input_path, &output_path, &las_version)
+                convert_pointcloud(index, pointcloud, Path::new(&input_path), Path::new(&output_path), &las_version)
                     .context(format!("Error while converting pointcloud {}", index))?;
 
                 Ok(())
@@ -68,7 +69,7 @@ pub fn convert_file(
 
         save_stations(output_path, pointclouds)?;
     } else {
-        convert_pointclouds(e57_reader, &output_path, &las_version)
+        convert_pointclouds(e57_reader, Path::new(&output_path), &las_version)
             .context("Error during the parallel processing of pointclouds")?;
     }
     Ok(())
