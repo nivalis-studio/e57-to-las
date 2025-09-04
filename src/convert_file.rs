@@ -6,8 +6,8 @@ use anyhow::{Context, Result};
 
 use crate::convert_pointcloud::{convert_pointcloud, convert_pointclouds};
 
-use crate::stations::save_stations;
 use crate::LasVersion;
+use crate::stations::save_stations;
 
 /// Converts a given e57 file into LAS format and, optionally, as stations.
 ///
@@ -67,7 +67,7 @@ pub fn convert_file(
             })
             .context("Error during the parallel processing of pointclouds")?;
 
-        save_stations(output_path, pointclouds)?;
+        save_stations(output_path, &pointclouds)?;
     } else {
         convert_pointclouds(e57_reader, Path::new(&output_path), &las_version)
             .context("Error during the parallel processing of pointclouds")?;

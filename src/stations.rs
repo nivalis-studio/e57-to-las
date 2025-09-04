@@ -3,38 +3,34 @@ extern crate rayon;
 use crate::spatial_point::SpatialPoint;
 use anyhow::Result;
 use e57::PointCloud;
-use serde_json;
 use std::{
-    collections::HashMap,
+    collections::BTreeMap,
     fs::File,
-    io::{BufWriter, Write as IoWrite},
+    io::{BufWriter, Write as _},
     path::Path,
 };
 
-pub(crate) fn save_stations(output_path: String, pointclouds: Vec<PointCloud>) -> Result<()> {
-    let mut stations: HashMap<usize, SpatialPoint> = HashMap::new();
+pub(crate) fn save_stations<P: AsRef<Path>>(
+    output_path: P,
+    pointclouds: &[PointCloud],
+) -> Result<()> {
+    let stations: BTreeMap<usize, SpatialPoint> = pointclouds
+        .iter()
+        .enumerate()
+        .map(|(index, pc)| {
+            let (x, y, z) = pc
+                .transform
+                .as_ref()
+                .map(|t| (t.translation.x, t.translation.y, t.translation.z))
+                .unwrap_or((0.0, 0.0, 0.0));
 
-    for index in 0..pointclouds.len() {
-        let pc = &pointclouds[index];
-        let translation = match pc.transform.clone() {
-            Some(t) => t.translation,
-            None => e57::Translation {
-                x: 0.0,
-                y: 0.0,
-                z: 0.0,
-            },
-        };
+            let station_point = SpatialPoint { x, y, z };
 
-        let station_point = SpatialPoint {
-            x: translation.x,
-            y: translation.y,
-            z: translation.z,
-        };
+            (index, station_point)
+        })
+        .collect();
 
-        stations.insert(index, station_point);
-    }
-
-    let stations_file = File::create(Path::new(&output_path).join("stations.json"))?;
+    let stations_file = File::create(output_path.as_ref().join("stations.json"))?;
     let mut writer = BufWriter::new(stations_file);
     serde_json::to_writer(&mut writer, &stations)?;
     writer.flush()?;
