@@ -5,8 +5,8 @@ use anyhow::{Context, Result};
 
 use crate::convert_pointcloud::{convert_pointcloud, convert_pointclouds};
 
-use crate::stations::save_stations;
 use crate::LasVersion;
+use crate::stations::save_stations;
 
 /// Converts a given e57 file into LAS format and, optionally, as stations.
 ///
