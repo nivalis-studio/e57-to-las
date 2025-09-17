@@ -1,7 +1,8 @@
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 
 use crate::get_las_writer::get_las_writer;
 use crate::{LasVersion, convert_point::convert_point, utils::create_path};
@@ -25,7 +26,7 @@ use rayon::prelude::*;
 /// ```ignore
 /// use std::path::Path;
 /// use e57_to_las::{convert_pointcloud, LasVersion};
-/// 
+///
 /// # fn example() -> anyhow::Result<()> {
 /// let input_path = Path::new("path/to/input.e57");
 /// let output_path = Path::new("path/to/output");
@@ -53,13 +54,13 @@ pub fn convert_pointcloud(
         (f64::NEG_INFINITY, f64::NEG_INFINITY, f64::NEG_INFINITY);
 
     let mut las_points: Vec<las::Point> = Vec::new();
-    let has_color_mutex = Mutex::new(false);
+    let mut has_color = false;
 
     for p in pointcloud_reader {
         let point = p.context("Could not read point: ")?;
 
         if point.color.is_some() {
-            *has_color_mutex.lock().unwrap_or_else(|e| e.into_inner()) = true;
+            has_color = true;
         }
 
         let las_point = match convert_point(point) {
@@ -75,14 +76,8 @@ pub fn convert_pointcloud(
 
     let max_cartesian = max_x.max(max_y).max(max_z);
 
-    let path = create_path(
-        output_path
-            .join("las")
-            .join(format!("{}{}", index, ".las")),
-    )
-    .context("Unable to create path: ")?;
-
-    let has_color = *has_color_mutex.lock().unwrap_or_else(|e| e.into_inner());
+    let path = create_path(output_path.join("las").join(format!("{}{}", index, ".las")))
+        .context("Unable to create path: ")?;
 
     let mut writer = get_las_writer(
         pointcloud.clone().guid,
@@ -116,7 +111,7 @@ pub fn convert_pointcloud(
 /// use std::path::Path;
 /// use e57_to_las::{convert_pointclouds, LasVersion};
 /// use anyhow::Context;
-/// 
+///
 /// # fn example() -> anyhow::Result<()> {
 /// let input_path = Path::new("path/to/input.e57");
 /// let e57_reader = e57::E57Reader::from_file(input_path).context("Failed to open e57 file")?;
@@ -139,7 +134,7 @@ pub fn convert_pointclouds(
     let max_cartesian_mutex = Mutex::new(max_cartesian);
     let las_points: Vec<las::Point> = Vec::new();
     let las_points_mutex = Mutex::new(las_points);
-    let has_color_mutex = Mutex::new(false);
+    let has_color = Arc::new(AtomicBool::new(false));
 
     pointclouds
         .par_iter()
@@ -158,7 +153,7 @@ pub fn convert_pointclouds(
                 let point = p.context("Could not read point: ")?;
 
                 if point.color.is_some() {
-                    *has_color_mutex.lock().unwrap_or_else(|e| e.into_inner()) = true;
+                    has_color.store(true, Ordering::Relaxed);
                 }
 
                 let las_point = match convert_point(point) {
@@ -185,24 +180,18 @@ pub fn convert_pointclouds(
         })
         .context("Error while converting pointcloud")?;
 
-    let path = create_path(
-        output_path
-            .join("las")
-            .join(format!("{}{}", 0, ".las")),
-    )
-    .context("Unable to create path: ")?;
+    let path = create_path(output_path.join("las").join(format!("{}{}", 0, ".las")))
+        .context("Unable to create path: ")?;
 
     let max_cartesian = *max_cartesian_mutex
         .lock()
         .unwrap_or_else(|e| e.into_inner());
 
-    let has_color = *has_color_mutex.lock().unwrap_or_else(|e| e.into_inner());
-
     let mut writer = get_las_writer(
         Some(guid.to_owned()),
         path,
         max_cartesian,
-        has_color,
+        has_color.load(Ordering::Relaxed),
         las_version,
     )
     .context("Unable to create writer: ")?;
