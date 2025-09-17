@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use crate::get_las_writer::get_las_writer;
-use crate::{convert_point::convert_point, utils::create_path, LasVersion};
+use crate::{LasVersion, convert_point::convert_point, utils::create_path};
 
 use anyhow::{Context, Result};
 use e57::{E57Reader, PointCloud};
@@ -24,17 +24,24 @@ use rayon::prelude::*;
 ///
 /// # Example
 /// ```ignore
-/// use e57_to_las::convert_pointcloud;
-/// let pointcloud = e57::Pointcloud {  };
-/// let input_path = String::from("path/to/input.e57");
-/// let output_path = String::from("path/to/output");
-/// convert_pointcloud(0, &pointcloud, input_path, output_path);
+/// use std::path::Path;
+/// use e57_to_las::{convert_pointcloud, LasVersion};
+///
+/// # fn example() -> anyhow::Result<()> {
+/// let input_path = Path::new("path/to/input.e57");
+/// let output_path = Path::new("path/to/output");
+/// let las_version = LasVersion::new(1, 4)?;
+/// // pointcloud would be obtained from E57Reader in practice
+/// # let pointcloud = todo!();
+/// convert_pointcloud(0, &pointcloud, input_path, output_path, &las_version)?;
+/// # Ok(())
+/// # }
 /// ```
 pub fn convert_pointcloud(
     index: usize,
     pointcloud: &PointCloud,
-    input_path: &String,
-    output_path: &String,
+    input_path: &Path,
+    output_path: &Path,
     las_version: &LasVersion,
 ) -> Result<()> {
     let mut e57_reader = E57Reader::from_file(input_path).context("Failed to open e57 file: ")?;
@@ -47,13 +54,13 @@ pub fn convert_pointcloud(
         (f64::NEG_INFINITY, f64::NEG_INFINITY, f64::NEG_INFINITY);
 
     let mut las_points: Vec<las::Point> = Vec::new();
-    let has_color = AtomicBool::new(false);
+    let mut has_color = false;
 
     for p in pointcloud_reader {
         let point = p.context("Could not read point: ")?;
 
         if point.color.is_some() {
-            has_color.store(true, Ordering::Relaxed);
+            has_color = true;
         }
 
         let las_point = match convert_point(point) {
@@ -69,18 +76,14 @@ pub fn convert_pointcloud(
 
     let max_cartesian = max_x.max(max_y).max(max_z);
 
-    let path = create_path(
-        Path::new(&output_path)
-            .join("las")
-            .join(format!("{}{}", index, ".las")),
-    )
-    .context("Unable to create path: ")?;
+    let path = create_path(output_path.join("las").join(format!("{}{}", index, ".las")))
+        .context("Unable to create path: ")?;
 
     let mut writer = get_las_writer(
         pointcloud.clone().guid,
         path,
         max_cartesian,
-        has_color.load(Ordering::Relaxed),
+        has_color,
         las_version,
     )
     .context("Unable to create writer: ")?;
@@ -105,14 +108,22 @@ pub fn convert_pointcloud(
 ///
 /// # Example
 /// ```ignore
-/// use e57_to_las::convert_pointclouds;
-/// let e57_reader = e57::E57Reader::from_file("path/to/input.e56").context("Failed to open e57 file")?;
-/// let output_path = String::from("path/to/output");
-/// convert_pointclouds(e57_reader, output_path);
+/// use std::path::Path;
+/// use e57_to_las::{convert_pointclouds, LasVersion};
+/// use anyhow::Context;
+///
+/// # fn example() -> anyhow::Result<()> {
+/// let input_path = Path::new("path/to/input.e57");
+/// let e57_reader = e57::E57Reader::from_file(input_path).context("Failed to open e57 file")?;
+/// let output_path = Path::new("path/to/output");
+/// let las_version = LasVersion::new(1, 4)?;
+/// convert_pointclouds(e57_reader, output_path, &las_version)?;
+/// # Ok(())
+/// # }
 /// ```
 pub fn convert_pointclouds(
     e57_reader: E57Reader<BufReader<File>>,
-    output_path: &String,
+    output_path: &Path,
     las_version: &LasVersion,
 ) -> Result<()> {
     let pointclouds = e57_reader.pointclouds();
@@ -129,9 +140,9 @@ pub fn convert_pointclouds(
         .par_iter()
         .enumerate()
         .try_for_each(|(index, pointcloud)| -> Result<()> {
-            println!("Saving pointclouds {}...", index);
+            println!("Saving pointclouds {index}...");
 
-            let mut reader = e57_reader_mutex.lock().unwrap();
+            let mut reader = e57_reader_mutex.lock().unwrap_or_else(|e| e.into_inner());
             let pointcloud_reader = reader
                 .pointcloud_simple(pointcloud)
                 .context("Unable to get point cloud iterator: ")?;
@@ -153,10 +164,15 @@ pub fn convert_pointclouds(
                 max_x = max_x.max(las_point.x);
                 max_y = max_y.max(las_point.y);
                 max_z = max_z.max(las_point.z);
-                las_points_mutex.lock().unwrap().push(las_point);
+                las_points_mutex
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .push(las_point);
             }
 
-            let mut guard = max_cartesian_mutex.lock().unwrap();
+            let mut guard = max_cartesian_mutex
+                .lock()
+                .unwrap_or_else(|e| e.into_inner());
             let current_max_cartesian = guard.max(max_x).max(max_y).max(max_z);
             *guard = current_max_cartesian;
 
@@ -164,23 +180,28 @@ pub fn convert_pointclouds(
         })
         .context("Error while converting pointcloud")?;
 
-    let path = create_path(
-        Path::new(&output_path)
-            .join("las")
-            .join(format!("{}{}", 0, ".las")),
-    )
-    .context("Unable to create path: ")?;
+    let path = create_path(output_path.join("las").join(format!("{}{}", 0, ".las")))
+        .context("Unable to create path: ")?;
+
+    let max_cartesian = *max_cartesian_mutex
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
 
     let mut writer = get_las_writer(
         Some(guid.to_owned()),
         path,
-        max_cartesian_mutex.lock().unwrap().to_owned(),
+        max_cartesian,
         has_color.load(Ordering::Relaxed),
         las_version,
     )
     .context("Unable to create writer: ")?;
 
-    for p in las_points_mutex.lock().unwrap().to_owned() {
+    let las_points = las_points_mutex
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone();
+
+    for p in las_points {
         writer.write_point(p).context("Unable to write: ")?;
     }
 

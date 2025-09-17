@@ -1,12 +1,13 @@
 extern crate rayon;
 use rayon::prelude::*;
+use std::path::Path;
 
 use anyhow::{Context, Result};
 
 use crate::convert_pointcloud::{convert_pointcloud, convert_pointclouds};
 
-use crate::stations::save_stations;
 use crate::LasVersion;
+use crate::stations::save_stations;
 
 /// Converts a given e57 file into LAS format and, optionally, as stations.
 ///
@@ -29,7 +30,7 @@ use crate::LasVersion;
 /// let output_path = String::from("path/to/output");
 /// let number_of_threads = 4;
 /// let as_stations = true;
-/// let las_version = LasVersion::new(1, 4).unwrap();
+/// let las_version = LasVersion::new(1, 4).expect("Failed to create LAS version");
 /// let _ = convert_file(input_path, output_path, number_of_threads, as_stations, las_version);
 /// ```
 pub fn convert_file(
@@ -59,16 +60,16 @@ pub fn convert_file(
             .try_for_each(|(index, pointcloud)| -> Result<()> {
                 println!("Saving pointcloud {}...", index);
 
-                convert_pointcloud(index, pointcloud, &input_path, &output_path, &las_version)
+                convert_pointcloud(index, pointcloud, Path::new(&input_path), Path::new(&output_path), &las_version)
                     .context(format!("Error while converting pointcloud {}", index))?;
 
                 Ok(())
             })
             .context("Error during the parallel processing of pointclouds")?;
 
-        save_stations(output_path, pointclouds)?;
+        save_stations(output_path, &pointclouds)?;
     } else {
-        convert_pointclouds(e57_reader, &output_path, &las_version)
+        convert_pointclouds(e57_reader, Path::new(&output_path), &las_version)
             .context("Error during the parallel processing of pointclouds")?;
     }
     Ok(())
@@ -81,13 +82,16 @@ mod tests {
 
     #[test]
     fn test_convert_bunny() {
-        let pool = ThreadPoolBuilder::new().num_threads(4).build().unwrap();
+        let pool = ThreadPoolBuilder::new()
+            .num_threads(4)
+            .build()
+            .expect("Failed to build thread pool");
         pool.install(|| {
             let input_path = String::from("examples/bunnyDouble.e57");
             let output_path = String::from("examples");
             let number_of_threads = 4;
             let as_stations = true;
-            let las_version = LasVersion::new(1, 3).unwrap();
+            let las_version = LasVersion::new(1, 3).expect("Failed to create LAS version");
             let result = convert_file(
                 input_path,
                 output_path,
