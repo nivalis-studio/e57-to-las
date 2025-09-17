@@ -21,10 +21,10 @@ fn find_smallest_scale(x: f64) -> f64 {
     // |x / scale| <= i32::MAX
     // scale >= |x| / i32::MAX
     let theoretical_min = x.abs() / f64::from(i32::MAX);
-    
+
     // Quantize to QUANTUM steps (0.0001), matching the legacy increment
     let scale = ((theoretical_min / QUANTUM).ceil()) * QUANTUM;
-    
+
     // Ensure we don't go below our minimum scale
     scale.max(MIN_SCALE)
 }
@@ -70,7 +70,7 @@ mod tests {
         assert_eq!(find_smallest_scale(1.0), MIN_SCALE);
         assert_eq!(find_smallest_scale(1000.0), MIN_SCALE);
         assert_eq!(find_smallest_scale(-1000.0), MIN_SCALE);
-        
+
         // Maximum value that still works with minimum scale
         let max_with_min_scale = f64::from(i32::MAX) * MIN_SCALE;
         assert_eq!(find_smallest_scale(max_with_min_scale), MIN_SCALE);
@@ -81,12 +81,12 @@ mod tests {
         // Test large values that need larger scales
         let large_value = 1e10;
         let scale = find_smallest_scale(large_value);
-        
+
         // Verify the scale works (value fits in i32 range when divided)
         let scaled = (large_value / scale).round();
         assert!(scaled >= f64::from(i32::MIN));
         assert!(scaled <= f64::from(i32::MAX));
-        
+
         // Check scale is properly rounded to 0.0001 precision
         let rounded_scale = (scale * 10000.0).round() / 10000.0;
         assert!((scale - rounded_scale).abs() < 1e-10);
@@ -98,11 +98,11 @@ mod tests {
         let just_above = f64::from(i32::MAX) * MIN_SCALE + 1.0;
         let scale = find_smallest_scale(just_above);
         assert!(scale > MIN_SCALE);
-        
+
         // Verify it still works
         let scaled = (just_above / scale).round();
         assert!(scaled <= f64::from(i32::MAX));
-        
+
         // Half-step close to the threshold
         let half_step = f64::from(i32::MAX) * MIN_SCALE + (MIN_SCALE / 2.0);
         let s2 = find_smallest_scale(half_step);
@@ -115,7 +115,7 @@ mod tests {
         // Test negative values
         let negative_large = -1e10;
         let scale = find_smallest_scale(negative_large);
-        
+
         // Verify the scale works for negative values
         let scaled = (negative_large / scale).round();
         assert!(scaled >= f64::from(i32::MIN));
@@ -126,18 +126,19 @@ mod tests {
     fn test_scale_precision() {
         // Test that scales are rounded to QUANTUM precision, including negatives
         let test_values = [2.15e9, 3.7e9, 5.5e9, 1e11, -2.15e9, -1e11];
-        
+
         for value in test_values {
             let scale = find_smallest_scale(value);
             // Check that scale has at most 4 decimal places
             let multiplied = scale * 10000.0;
             assert!((multiplied - multiplied.round()).abs() < 1e-10);
-            
+
             // And that it meets the theoretical lower bound
             let theoretical_min = value.abs() / f64::from(i32::MAX);
-            assert!(scale + 1e-12 >= theoretical_min, 
-                    "Scale {} should be >= theoretical min {} for value {}", 
-                    scale, theoretical_min, value);
+            assert!(
+                scale + 1e-12 >= theoretical_min,
+                "Scale {scale} should be >= theoretical min {theoretical_min} for value {value}",
+            );
         }
     }
 }
