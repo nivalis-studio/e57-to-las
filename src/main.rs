@@ -1,39 +1,51 @@
-use anyhow::Context;
-use clap::Parser;
-use e57_to_las::{LasVersion, Result, convert_file};
+use std::{
+    fs::File,
+    io::{BufReader, BufWriter},
+    path::PathBuf,
+    time::Instant,
+};
 
-#[derive(Parser)]
-#[command(author, version, about, long_about = None)]
-struct Args {
-    #[arg(short, long)]
-    path: String,
-
-    #[arg(short, long, default_value_t = String::from("./"))]
-    output: String,
-
-    #[arg(short = 'T', long, default_value_t = 0)]
-    threads: usize,
-
-    #[arg(short = 'S', long, default_value_t = false)]
-    stations: bool,
-
-    #[arg(short = 'L', long, default_value_t = String::from("1.4"))]
-    las_version: String,
-}
+use e57_to_las::{Converter, Result};
 
 fn main() -> Result<()> {
-    let args = Args::parse();
+    let start = Instant::now();
+    let input_path = "./examples/cloud.e57";
+    let output_path = "./output/cloud.las";
+    let converter_mt = Converter::builder().parallel().build();
+    let converter_mt_split = Converter::builder().parallel().split().build();
+    let converter = Converter::builder().build();
 
-    let las_version = LasVersion::try_from(args.las_version.as_str())?;
+    let output_file = File::create(output_path)?;
 
-    convert_file(
-        args.path,
-        args.output,
-        args.threads,
-        args.stations,
-        las_version,
-    )
-    .context("Failed to convert file")?;
+    converter_mt.convert(PathBuf::from(&input_path), output_file)?;
+    converter_mt.convert(
+        move || {
+            let file = File::open(input_path)?;
+            Ok(BufReader::new(file))
+        },
+        output_path,
+    )?;
 
+    let input_buf = BufReader::new(File::open(output_path)?);
+
+    converter.convert(input_buf, output_path)?;
+
+    fn make_writer(id: &str) -> Result<BufWriter<File>> {
+        let filename = format!("./output/{id}.las");
+        let file = File::create(filename)?;
+
+        Ok(BufWriter::new(file))
+    }
+
+    converter_mt_split.convert(input_path, |id: &str| {
+        let filename = format!("./output/{id}.las");
+        let file = File::create(filename)?;
+
+        Ok(BufWriter::new(file))
+    })?;
+
+    converter_mt_split.convert(input_path, make_writer)?;
+
+    println!("total took: {}ms", start.elapsed().as_millis());
     Ok(())
 }
