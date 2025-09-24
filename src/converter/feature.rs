@@ -1,26 +1,54 @@
-mod builder;
-mod options;
-
-use std::{
-    sync::{Arc, Mutex, mpsc},
-    thread,
-};
-
-#[cfg(not(feature = "parallel"))]
-use crate::{TryIntoReader, e57::E57PointExt};
-
-use crate::{Error, MakeReader, MakeWriter, Result, TryIntoWriter, las::LasHeaderExt};
-
-pub use builder::ConverterBuilder;
-pub use options::ConversionOptions;
+use crate::e57::E57PointExt;
+use crate::las::LasHeaderExt;
+use crate::{ConversionOptions, Error, MakeWriter};
+use crate::{MakeReader, TryIntoReader, TryIntoWriter};
+use crate::{Result, las::Scale};
+use std::sync::{Arc, Mutex};
+use std::{sync::mpsc, thread};
 
 pub type ConversionResult = Result<()>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
+pub struct ConverterBuilder {
+    opts: Option<ConversionOptions>,
+    #[cfg(feature = "parallel")]
+    workers: Option<usize>,
+}
+
 pub struct Converter {
     opts: ConversionOptions,
     #[cfg(feature = "parallel")]
     workers: usize,
+}
+
+impl ConverterBuilder {
+    pub fn new() -> Self {
+        ConverterBuilder::default()
+    }
+
+    pub fn scale(mut self, scale: Scale) -> Self {
+        self.opts.get_or_insert_default().scale = scale;
+        self
+    }
+
+    pub fn las_version(mut self, las_version: (u8, u8)) -> Self {
+        self.opts.get_or_insert_default().las_version = las_version;
+        self
+    }
+
+    #[cfg(feature = "parallel")]
+    pub fn workers(mut self, n: usize) -> Self {
+        self.workers = Some(n);
+        self
+    }
+
+    pub fn build(self) -> Converter {
+        Converter {
+            opts: self.opts.unwrap_or_default(),
+            #[cfg(feature = "parallel")]
+            workers: self.workers.unwrap_or(num_cpus::get()),
+        }
+    }
 }
 
 impl Converter {
@@ -234,7 +262,7 @@ impl Converter {
         Ok(())
     }
 
-    pub fn convert_split_pointclouds<I, O>(&self, _input: I, _output: O) -> ConversionResult
+    pub fn convert_split_pointclouds<I, O>(&self, input: I, output: O) -> ConversionResult
     where
         I: MakeReader,
         O: MakeWriter,

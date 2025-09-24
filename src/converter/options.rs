@@ -1,5 +1,3 @@
-use std::thread;
-
 use crate::las::Scale;
 
 #[derive(Debug, Clone)]
@@ -14,20 +12,5 @@ impl Default for ConversionOptions {
             scale: Default::default(),
             las_version: (1, 4),
         }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct ParallelOptions {
-    pub workers: usize,
-}
-
-impl Default for ParallelOptions {
-    fn default() -> Self {
-        let workers = thread::available_parallelism()
-            .map(|n| n.get())
-            .unwrap_or(1);
-
-        Self { workers }
     }
 }
