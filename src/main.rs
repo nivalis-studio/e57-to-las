@@ -9,8 +9,8 @@ use e57_to_las::{Converter, Result};
 
 fn main() -> Result<()> {
     let start = Instant::now();
-    let input_path = "./examples/cloud.e57";
-    let output_path = "./output/cloud.las";
+    let input_path = "./examples/Trimble_StSulpice-Cloud-50mm.e57";
+    let output_path = "./output/Trimble_StSulpice-Cloud-50mm.las";
     let converter = Converter::builder().build();
 
     let output_file = File::create(output_path)?;
