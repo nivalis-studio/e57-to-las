@@ -1,16 +1,7 @@
-use crate::las::Scale;
+use crate::las::{LasVersion, Scale};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ConversionOptions {
     pub scale: Scale,
-    pub las_version: (u8, u8),
-}
-
-impl Default for ConversionOptions {
-    fn default() -> Self {
-        Self {
-            scale: Default::default(),
-            las_version: (1, 4),
-        }
-    }
+    pub las_version: LasVersion,
 }

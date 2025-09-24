@@ -67,9 +67,7 @@ fn build_header(
     bounds: Option<([f64; 3], [f64; 3])>,
     opts: &ConversionOptions,
 ) -> Result<las::Header> {
-    let (major, minor) = opts.las_version;
-
-    let mut b = las::Builder::from(las::Version::new(major, minor));
+    let mut b = las::Builder::from(las::Version::from(opts.las_version));
 
     b.point_format = point_format;
     b.generating_software = String::from("e57_to_las");

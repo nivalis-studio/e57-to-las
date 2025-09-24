@@ -11,6 +11,9 @@ pub enum Error {
     #[error("LAS error")]
     Las(#[from] las::Error),
 
+    #[error("invalid LAS version: {0}")]
+    InvalidLasVersion(String),
+
     #[error("Internal error: {0}")]
     Internal(String),
 }

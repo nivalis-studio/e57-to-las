@@ -1,7 +1,9 @@
+use crate::las::version::LasVersion;
+
 pub struct LasFormatAttributes {
     pub has_color: bool,
     pub has_time: bool,
-    pub las_version: (u8, u8),
+    pub las_version: LasVersion,
 }
 
 pub trait LasFormatExt {
@@ -16,7 +18,7 @@ impl LasFormatExt for las::point::Format {
             las_version,
         } = attributes;
 
-        let format = match (has_color, has_time, las_version >= (1, 4)) {
+        let format = match (has_color, has_time, *las_version >= (1, 4)) {
             (false, false, _) => 0,
             (false, true, _) => 1,
             (true, false, _) => 2,

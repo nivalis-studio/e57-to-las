@@ -1,4 +1,4 @@
-use crate::las::Scale;
+use crate::las::{LasVersion, Scale};
 
 use super::{ConversionOptions, Converter};
 
@@ -19,7 +19,7 @@ impl ConverterBuilder {
         self
     }
 
-    pub fn las_version(mut self, las_version: (u8, u8)) -> Self {
+    pub fn las_version(mut self, las_version: LasVersion) -> Self {
         self.opts.get_or_insert_default().las_version = las_version;
         self
     }
