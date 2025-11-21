@@ -50,8 +50,7 @@ pub fn convert_pointcloud(
         .pointcloud_simple(pointcloud)
         .context("Unable to get point cloud iterator: ")?;
 
-    let (mut max_x, mut max_y, mut max_z) =
-        (f64::NEG_INFINITY, f64::NEG_INFINITY, f64::NEG_INFINITY);
+    let mut max_cartesian = 0.0;
 
     let mut las_points: Vec<las::Point> = Vec::new();
     let mut has_color = false;
@@ -68,13 +67,14 @@ pub fn convert_pointcloud(
             None => continue,
         };
 
-        max_x = max_x.max(las_point.x);
-        max_y = max_y.max(las_point.y);
-        max_z = max_z.max(las_point.z);
+        let abs_extent = las_point
+            .x
+            .abs()
+            .max(las_point.y.abs())
+            .max(las_point.z.abs());
+        max_cartesian = max_cartesian.max(abs_extent);
         las_points.push(las_point);
     }
-
-    let max_cartesian = max_x.max(max_y).max(max_z);
 
     let path = create_path(output_path.join("las").join(format!("{}{}", index, ".las")))
         .context("Unable to create path: ")?;
@@ -130,8 +130,7 @@ pub fn convert_pointclouds(
     let guid = &e57_reader.guid().to_owned();
     let e57_reader_mutex = Mutex::new(e57_reader);
 
-    let max_cartesian = f64::NEG_INFINITY;
-    let max_cartesian_mutex = Mutex::new(max_cartesian);
+    let max_cartesian_mutex = Mutex::new(0.0);
     let las_points: Vec<las::Point> = Vec::new();
     let las_points_mutex = Mutex::new(las_points);
     let has_color = Arc::new(AtomicBool::new(false));
@@ -147,8 +146,7 @@ pub fn convert_pointclouds(
                 .pointcloud_simple(pointcloud)
                 .context("Unable to get point cloud iterator: ")?;
 
-            let (mut max_x, mut max_y, mut max_z) =
-                (f64::NEG_INFINITY, f64::NEG_INFINITY, f64::NEG_INFINITY);
+            let mut local_max_cartesian = 0.0;
             for p in pointcloud_reader {
                 let point = p.context("Could not read point: ")?;
 
@@ -161,9 +159,12 @@ pub fn convert_pointclouds(
                     None => continue,
                 };
 
-                max_x = max_x.max(las_point.x);
-                max_y = max_y.max(las_point.y);
-                max_z = max_z.max(las_point.z);
+                let abs_extent = las_point
+                    .x
+                    .abs()
+                    .max(las_point.y.abs())
+                    .max(las_point.z.abs());
+                local_max_cartesian = local_max_cartesian.max(abs_extent);
                 las_points_mutex
                     .lock()
                     .unwrap_or_else(|e| e.into_inner())
@@ -173,7 +174,7 @@ pub fn convert_pointclouds(
             let mut guard = max_cartesian_mutex
                 .lock()
                 .unwrap_or_else(|e| e.into_inner());
-            let current_max_cartesian = guard.max(max_x).max(max_y).max(max_z);
+            let current_max_cartesian = guard.max(local_max_cartesian);
             *guard = current_max_cartesian;
 
             Ok(())
