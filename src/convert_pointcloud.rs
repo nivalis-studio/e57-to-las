@@ -50,7 +50,7 @@ pub fn convert_pointcloud(
         .pointcloud_simple(pointcloud)
         .context("Unable to get point cloud iterator: ")?;
 
-    let mut max_cartesian = 0.0;
+    let mut max_cartesian: f64 = 0.0;
 
     let mut las_points: Vec<las::Point> = Vec::new();
     let mut has_color = false;
@@ -130,7 +130,7 @@ pub fn convert_pointclouds(
     let guid = &e57_reader.guid().to_owned();
     let e57_reader_mutex = Mutex::new(e57_reader);
 
-    let max_cartesian_mutex = Mutex::new(0.0);
+    let max_cartesian_mutex = Mutex::new(0.0_f64);
     let las_points: Vec<las::Point> = Vec::new();
     let las_points_mutex = Mutex::new(las_points);
     let has_color = Arc::new(AtomicBool::new(false));
@@ -146,7 +146,7 @@ pub fn convert_pointclouds(
                 .pointcloud_simple(pointcloud)
                 .context("Unable to get point cloud iterator: ")?;
 
-            let mut local_max_cartesian = 0.0;
+            let mut local_max_cartesian: f64 = 0.0;
             for p in pointcloud_reader {
                 let point = p.context("Could not read point: ")?;
 
@@ -174,7 +174,7 @@ pub fn convert_pointclouds(
             let mut guard = max_cartesian_mutex
                 .lock()
                 .unwrap_or_else(|e| e.into_inner());
-            let current_max_cartesian = guard.max(local_max_cartesian);
+            let current_max_cartesian = (*guard).max(local_max_cartesian);
             *guard = current_max_cartesian;
 
             Ok(())
