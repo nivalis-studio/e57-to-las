@@ -40,11 +40,31 @@ pub fn convert_file(
     as_stations: bool,
     las_version: LasVersion,
 ) -> Result<()> {
-    rayon::ThreadPoolBuilder::new()
-        .num_threads(number_of_threads)
-        .build_global()
-        .context("Failed to initialize the global thread pool for rayon")?;
+    let thread_pool = build_thread_pool(number_of_threads)?;
 
+    thread_pool.install(move || {
+        run_conversion(input_path, output_path, as_stations, las_version)
+    })
+}
+
+fn build_thread_pool(number_of_threads: usize) -> Result<rayon::ThreadPool> {
+    let builder = if number_of_threads == 0 {
+        rayon::ThreadPoolBuilder::new()
+    } else {
+        rayon::ThreadPoolBuilder::new().num_threads(number_of_threads)
+    };
+
+    builder
+        .build()
+        .context("Failed to initialize the thread pool for rayon")
+}
+
+fn run_conversion(
+    input_path: String,
+    output_path: String,
+    as_stations: bool,
+    las_version: LasVersion,
+) -> Result<()> {
     let e57_reader = e57::E57Reader::from_file(&input_path).context("Failed to open e57 file")?;
 
     if e57_reader.format_name() != "ASTM E57 3D Imaging Data File" {
@@ -102,5 +122,11 @@ mod tests {
 
             assert!(result.is_ok());
         });
+    }
+
+    #[test]
+    fn build_thread_pool_can_be_called_multiple_times() {
+        build_thread_pool(0).expect("Failed to build default thread pool");
+        build_thread_pool(4).expect("Failed to rebuild thread pool with explicit size");
     }
 }
