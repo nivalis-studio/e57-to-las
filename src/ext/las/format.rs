@@ -1,4 +1,4 @@
-use crate::las::version::LasVersion;
+use crate::ext::las::version::LasVersion;
 
 pub struct LasFormatAttributes {
     pub has_color: bool,

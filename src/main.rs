@@ -1,45 +1,41 @@
-use std::{
-    fs::File,
-    io::{BufReader, BufWriter},
-    path::PathBuf,
-    time::Instant,
-};
+use std::time::Instant;
 
-use e57_to_las::{Converter, Result};
+use e2las::{ConvertOptions, Result, convert, convert_split, parallel};
 
 fn main() -> Result<()> {
     let start = Instant::now();
     let input_path = "./examples/Trimble_StSulpice-Cloud-50mm.e57";
     let output_path = "./output/Trimble_StSulpice-Cloud-50mm.las";
-    let converter = Converter::builder().build();
 
-    let output_file = File::create(output_path)?;
+    let opts: ConvertOptions = Default::default();
 
-    converter.convert(PathBuf::from(&input_path), output_file)?;
-    converter.convert(
-        move || {
-            let file = File::open(input_path)?;
-            Ok(BufReader::new(file))
-        },
-        output_path,
-    )?;
+    time_it("convert", || {
+        convert(input_path, output_path, &opts).unwrap();
+    });
 
-    fn make_writer(id: &str) -> Result<BufWriter<File>> {
-        let filename = format!("./output/{id}.las");
-        let file = File::create(filename)?;
+    time_it("convert_split", || {
+        convert_split(input_path, &output_path, &opts).unwrap();
+    });
 
-        Ok(BufWriter::new(file))
-    }
-
-    converter.convert_split_pointclouds(input_path, |id: &str| {
-        let filename = format!("./output/{id}.las");
-        let file = File::create(filename)?;
-
-        Ok(BufWriter::new(file))
-    })?;
-
-    converter.convert_split_pointclouds(input_path, make_writer)?;
+    time_it("parallel::convert_split", || {
+        parallel::convert_split(input_path, output_path, &opts).unwrap();
+    });
+    time_it("parallel::convert_split", || {
+        parallel::convert(&input_path, output_path, &opts).unwrap();
+    });
 
     println!("total took: {}ms", start.elapsed().as_millis());
+
     Ok(())
+}
+
+fn time_it<F>(label: &str, f: F)
+where
+    F: FnOnce(),
+{
+    let start = Instant::now();
+
+    f();
+
+    println!("{label} took: {}ms", start.elapsed().as_millis());
 }

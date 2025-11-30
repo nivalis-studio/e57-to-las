@@ -1,5 +1,5 @@
-mod reader;
-mod writer;
+mod read;
+mod write;
 
-pub use reader::{MakeReader, Reader, TryIntoReader};
-pub use writer::{MakeWriter, TryIntoWriter, Writer};
+pub use read::{ReaderFactory, ReaderOnce};
+pub use write::{WriteCtx, WriterFactory, WriterOnce};

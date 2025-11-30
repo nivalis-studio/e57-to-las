@@ -1,20 +1,26 @@
 use crate::{
-    ConversionOptions, Result,
-    e57::E57PointCloudExt,
-    las::{LasFormatAttributes, LasFormatExt},
+    ConvertOptions, Result,
+    ext::e57::E57PointCloudExt,
+    ext::las::{LasFormatAttributes, LasFormatExt},
 };
 
 pub trait LasHeaderExt: Sized {
-    fn from_pointclouds(pointclouds: &[e57::PointCloud], opts: &ConversionOptions) -> Result<Self>;
+    fn from_pointclouds(
+        pointclouds: &[e57::PointCloud],
+        opts: &ConvertOptions,
+    ) -> Result<(Self, las::point::Format)>;
 
-    fn from_pointcloud(pointcloud: &e57::PointCloud, opts: &ConversionOptions) -> Result<Self>;
+    fn from_pointcloud(
+        pointcloud: &e57::PointCloud,
+        opts: &ConvertOptions,
+    ) -> Result<(Self, las::point::Format)>;
 }
 
 impl LasHeaderExt for las::Header {
     fn from_pointclouds(
         pointclouds: &[e57::PointCloud],
-        opts: &ConversionOptions,
-    ) -> Result<las::Header> {
+        opts: &ConvertOptions,
+    ) -> Result<(Self, las::point::Format)> {
         let mut has_color = false;
         let mut has_time = false;
         let mut has_bounds = false;
@@ -41,13 +47,22 @@ impl LasHeaderExt for las::Header {
 
         let combined_bounds = has_bounds.then_some((global_min, global_max));
 
-        build_header(point_format, combined_bounds, opts)
+        let mut builder = preset_header(point_format, combined_bounds, opts)?;
+
+        if let Some(hook_fn) = &opts.header_hook {
+            hook_fn(&mut builder);
+        }
+
+        let header = builder.into_header()?;
+        let point_format = *header.point_format();
+
+        Ok((header, point_format))
     }
 
     fn from_pointcloud(
         pointcloud: &e57::PointCloud,
-        opts: &ConversionOptions,
-    ) -> Result<las::Header> {
+        opts: &ConvertOptions,
+    ) -> Result<(Self, las::point::Format)> {
         let has_color = pointcloud.has_color();
         let has_time = pointcloud.has_timestamp();
         let bounds = pointcloud.global_bounds();
@@ -58,15 +73,24 @@ impl LasHeaderExt for las::Header {
             las_version: opts.las_version,
         });
 
-        build_header(point_format, bounds, opts)
+        let mut builder = preset_header(point_format, bounds, opts)?;
+
+        if let Some(hook_fn) = &opts.header_hook {
+            hook_fn(&mut builder);
+        }
+
+        let header = builder.into_header()?;
+        let point_format = *header.point_format();
+
+        Ok((header, point_format))
     }
 }
 
-fn build_header(
+fn preset_header(
     point_format: las::point::Format,
     bounds: Option<([f64; 3], [f64; 3])>,
-    opts: &ConversionOptions,
-) -> Result<las::Header> {
+    opts: &ConvertOptions,
+) -> Result<las::Builder> {
     let mut b = las::Builder::from(las::Version::from(opts.las_version));
 
     b.point_format = point_format;
@@ -101,5 +125,5 @@ fn build_header(
         scale,
     };
 
-    Ok(b.into_header()?)
+    Ok(b)
 }

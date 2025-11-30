@@ -1,10 +1,7 @@
-mod converter;
+mod convert;
 mod error;
-mod extensions;
-mod io;
+pub mod ext;
+pub mod io;
 
-pub use converter::{ConversionOptions, Converter, ConverterBuilder};
+pub use convert::{ConvertOptions, convert, convert_split, parallel};
 pub use error::{Error, Result};
-pub use io::*;
-
-pub use extensions::*;
