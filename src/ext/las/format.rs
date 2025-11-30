@@ -1,12 +1,12 @@
 use crate::ext::las::version::LasVersion;
 
-pub struct LasFormatAttributes {
-    pub has_color: bool,
-    pub has_time: bool,
-    pub las_version: LasVersion,
+pub(crate) struct LasFormatAttributes {
+    pub(crate) has_color: bool,
+    pub(crate) has_time: bool,
+    pub(crate) las_version: LasVersion,
 }
 
-pub trait LasFormatExt {
+pub(crate) trait LasFormatExt {
     fn from_attributes(attributes: LasFormatAttributes) -> Self;
 }
 

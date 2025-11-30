@@ -1,4 +1,4 @@
-pub trait E57PointCloudExt {
+pub(crate) trait E57PointCloudExt {
     fn global_bounds(&self) -> Option<([f64; 3], [f64; 3])>;
 }
 

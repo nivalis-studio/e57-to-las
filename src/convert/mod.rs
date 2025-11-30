@@ -9,8 +9,9 @@ use crate::{
     },
     io::{ReaderOnce, WritePointCloudCtx, WriterFactory, WriterOnce},
 };
-pub use event::{Event, EventCallback, EventHandler};
-pub use options::ConvertOptions;
+use event::EventHandler;
+pub use event::{Event, EventCallback};
+pub use options::{ConvertOptions, LasVersion, Scale};
 
 pub fn convert<I, O>(source: I, sink: O, opts: &ConvertOptions) -> Result<O::Writer>
 where
@@ -100,7 +101,7 @@ pub mod parallel {
 
     use crate::{
         ConvertOptions, Error, Event, Result,
-        convert::EventHandler,
+        convert::event::EventHandler,
         ext::{
             e57::{E57PointExt, PointMeta},
             las::LasHeaderExt,
@@ -303,6 +304,7 @@ pub mod parallel {
         join_all_workers(readers_handles, writer_handle)
     }
 
+    #[inline]
     fn join_all_workers<T>(
         readers_handles: Vec<JoinHandle<Result<()>>>,
         writer_handle: JoinHandle<Result<T>>,
@@ -317,6 +319,7 @@ pub mod parallel {
             .map_err(|_| Error::Internal("writer panicked".into()))?
     }
 
+    #[inline]
     fn setup_readers_workers(
         n_jobs: usize,
         opts: &ConvertOptions,

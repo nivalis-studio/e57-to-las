@@ -1,9 +1,8 @@
 use std::sync::Arc;
 
-use crate::{
-    convert::event::EventCallback,
-    ext::las::{LasVersion, Scale},
-};
+use crate::convert::event::EventCallback;
+
+pub use crate::ext::las::{LasVersion, Scale};
 
 pub type HeaderHook = Arc<dyn Fn(&mut las::Builder) + Send + Sync + 'static>;
 

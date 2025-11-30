@@ -4,7 +4,7 @@ use crate::{
     ext::las::{LasFormatAttributes, LasFormatExt},
 };
 
-pub trait LasHeaderExt: Sized {
+pub(crate) trait LasHeaderExt: Sized {
     fn from_pointclouds(
         pointclouds: &[e57::PointCloud],
         opts: &ConvertOptions,

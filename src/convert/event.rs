@@ -44,24 +44,24 @@ impl Event {
 pub type EventCallback = Arc<dyn Fn(Event) + Send + Sync + 'static>;
 
 #[derive(Clone)]
-pub struct EventSender {
+pub(crate) struct EventSender {
     tx: flume::Sender<Event>,
 }
 
 impl EventSender {
     #[inline]
-    pub fn send(&self, event: Event) {
+    pub(crate) fn send(&self, event: Event) {
         let _ = self.tx.send(event);
     }
 }
 
-pub struct EventHandler {
+pub(crate) struct EventHandler {
     tx: flume::Sender<Event>,
     handle: Option<thread::JoinHandle<()>>,
 }
 
 impl EventHandler {
-    pub fn new(callback: Option<&EventCallback>) -> Option<Self> {
+    pub(crate) fn new(callback: Option<&EventCallback>) -> Option<Self> {
         let callback = callback?.clone();
         let (tx, rx) = flume::unbounded();
 
@@ -78,14 +78,14 @@ impl EventHandler {
     }
 
     #[inline]
-    pub fn sender(&self) -> EventSender {
+    pub(crate) fn sender(&self) -> EventSender {
         EventSender {
             tx: self.tx.clone(),
         }
     }
 
     #[inline]
-    pub fn send(&self, event: Event) {
+    pub(crate) fn send(&self, event: Event) {
         let _ = self.tx.send(event);
     }
 }

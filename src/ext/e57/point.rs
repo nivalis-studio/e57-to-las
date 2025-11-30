@@ -1,11 +1,11 @@
 #[derive(Clone, Copy)]
-pub struct PointMeta {
-    pub point_format: las::point::Format,
-    pub gps_time: Option<f64>,
+pub(crate) struct PointMeta {
+    pub(crate) point_format: las::point::Format,
+    pub(crate) gps_time: Option<f64>,
 }
 
 impl PointMeta {
-    pub fn new(point_format: las::point::Format, pc: &e57::PointCloud) -> Self {
+    pub(crate) fn new(point_format: las::point::Format, pc: &e57::PointCloud) -> Self {
         Self {
             point_format,
             gps_time: point_format.has_gps_time.then(|| {
@@ -18,7 +18,7 @@ impl PointMeta {
     }
 }
 
-pub trait E57PointExt {
+pub(crate) trait E57PointExt {
     fn to_las_point(self, meta: &PointMeta) -> las::Point;
 }
 

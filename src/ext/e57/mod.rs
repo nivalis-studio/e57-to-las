@@ -1,7 +1,5 @@
 mod point;
 mod pointcloud;
-mod reader;
 
-pub use point::*;
-pub use pointcloud::*;
-pub use reader::*;
+pub(crate) use point::*;
+pub(crate) use pointcloud::*;
