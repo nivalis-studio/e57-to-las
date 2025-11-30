@@ -75,7 +75,7 @@
 //! convert("scan.e57", "output.las", &options)?;
 //! ```
 //!
-//! see [`ConvertOptions`](crate::ConvertOptions) for more details on customisation options
+//! see [`ConvertOptions`] for more details on customisation options
 //!
 //! # Coordinate System Handling
 //!
