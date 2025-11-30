@@ -1,6 +1,9 @@
 use std::sync::Arc;
 
-use crate::ext::las::{LasVersion, Scale};
+use crate::{
+    convert::event::EventCallback,
+    ext::las::{LasVersion, Scale},
+};
 
 pub type HeaderHook = Arc<dyn Fn(&mut las::Builder) + Send + Sync + 'static>;
 
@@ -12,6 +15,7 @@ pub struct ConvertOptions {
     pub scale: Scale,
     pub las_version: LasVersion,
     pub header_hook: Option<HeaderHook>,
+    pub on_event: Option<EventCallback>,
 
     #[cfg(feature = "parallel")]
     pub batch_size: usize,
@@ -28,7 +32,8 @@ impl Default for ConvertOptions {
         Self {
             scale: Default::default(),
             las_version: Default::default(),
-            header_hook: Default::default(),
+            header_hook: None,
+            on_event: None,
 
             #[cfg(feature = "parallel")]
             batch_size: DEFAULT_BATCH_SIZE,

@@ -1,3 +1,4 @@
+mod event;
 mod options;
 
 use crate::{
@@ -8,6 +9,7 @@ use crate::{
     },
     io::{ReaderOnce, WritePointCloudCtx, WriterFactory, WriterOnce},
 };
+pub use event::{Event, EventCallback, EventHandler};
 pub use options::ConvertOptions;
 
 pub fn convert<I, O>(source: I, sink: O, opts: &ConvertOptions) -> Result<O::Writer>
@@ -22,13 +24,23 @@ where
 
     let mut writer = las::Writer::new(sink.try_into_writer()?, header)?;
 
-    for pc in pointclouds {
-        let meta = PointMeta::new(point_format, &pc);
-        let points = e57_reader.pointcloud_simple(&pc)?;
+    let event_handler = EventHandler::new(opts.on_event.as_ref());
+
+    for (i, pc) in pointclouds.iter().enumerate() {
+        let meta = PointMeta::new(point_format, pc);
+        let points = e57_reader.pointcloud_simple(pc)?;
+
+        if let Some(ref handler) = event_handler {
+            handler.send(Event::pointcloud_started(i, pc));
+        }
 
         for p in points {
             let las_point = p?.to_las_point(&meta);
             writer.write_point(las_point)?;
+        }
+
+        if let Some(ref handler) = event_handler {
+            handler.send(Event::pointcloud_ended(i));
         }
     }
 
@@ -45,6 +57,8 @@ where
 
     let mut sinks = Vec::with_capacity(pointclouds.len());
 
+    let event_handler = EventHandler::new(opts.on_event.as_ref());
+
     for (i, pc) in pointclouds.iter().enumerate() {
         let (header, point_format) = las::Header::from_pointcloud(pc, opts)?;
 
@@ -59,11 +73,18 @@ where
         let meta = PointMeta::new(point_format, pc);
         let points = e57_reader.pointcloud_simple(pc)?;
 
+        if let Some(ref handler) = event_handler {
+            handler.send(Event::pointcloud_started(i, pc));
+        }
+
         for p in points {
             let las_point = p?.to_las_point(&meta);
             writer.write_point(las_point)?;
         }
 
+        if let Some(ref handler) = event_handler {
+            handler.send(Event::pointcloud_ended(i));
+        }
         sinks.push(writer.into_inner()?);
     }
 
@@ -78,7 +99,8 @@ pub mod parallel {
     };
 
     use crate::{
-        ConvertOptions, Error, Result,
+        ConvertOptions, Error, Event, Result,
+        convert::EventHandler,
         ext::{
             e57::{E57PointExt, PointMeta},
             las::LasHeaderExt,
@@ -111,11 +133,14 @@ pub mod parallel {
             Ok(writer.into_inner()?)
         });
 
+        let event_handler = EventHandler::new(opts.on_event.as_ref());
+
         let (rx_jobs, mut readers_handles) = setup_readers_workers(n, opts);
 
         for _ in 0..readers_handles.capacity() {
             let rx_jobs = rx_jobs.clone();
             let tx_writer = tx_writer.clone();
+            let event_sender = event_handler.as_ref().map(|h| h.sender());
             let reader = source.create_reader()?;
             let opts = opts.clone();
 
@@ -127,6 +152,10 @@ pub mod parallel {
                     let pc = &pointclouds[idx];
                     let meta = PointMeta::new(point_format, pc);
                     let points = e57_reader.pointcloud_simple(pc)?;
+
+                    if let Some(ref sender) = event_sender {
+                        sender.send(Event::pointcloud_started(idx, pc));
+                    }
 
                     let mut buf: Vec<las::Point> = Vec::with_capacity(opts.batch_size);
                     for p in points {
@@ -147,6 +176,10 @@ pub mod parallel {
                         tx_writer
                             .send(buf)
                             .map_err(|_| Error::Internal("writer thread dropped".into()))?;
+                    }
+
+                    if let Some(ref sender) = event_sender {
+                        sender.send(Event::pointcloud_ended(idx));
                     }
                 }
 
@@ -207,6 +240,8 @@ pub mod parallel {
             Ok(raws)
         });
 
+        let event_handler = EventHandler::new(opts.on_event.as_ref());
+
         let (rx_jobs, mut readers_handles) = setup_readers_workers(n, opts);
 
         let metas = Arc::new(metas);
@@ -214,6 +249,7 @@ pub mod parallel {
         for _ in 0..readers_handles.capacity() {
             let rx_jobs = rx_jobs.clone();
             let tx_msg = tx_msg.clone();
+            let event_sender = event_handler.as_ref().map(|h| h.sender());
             let reader = source.create_reader()?;
             let opts = opts.clone();
             let metas = Arc::clone(&metas);
@@ -226,6 +262,10 @@ pub mod parallel {
                     let pc = &pointclouds[i];
                     let meta = metas[i];
                     let points = e57_reader.pointcloud_simple(pc)?;
+
+                    if let Some(ref sender) = event_sender {
+                        sender.send(Event::pointcloud_started(i, pc));
+                    }
 
                     let mut buf: Vec<las::Point> = Vec::with_capacity(opts.batch_size);
 
@@ -247,6 +287,10 @@ pub mod parallel {
                         tx_msg
                             .send((i, buf))
                             .map_err(|_| Error::Internal("writer thread dropped".into()))?;
+                    }
+
+                    if let Some(ref sender) = event_sender {
+                        sender.send(Event::pointcloud_ended(i));
                     }
                 }
 
