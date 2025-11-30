@@ -57,12 +57,15 @@ fn main() -> Result<()> {
         _ => {}
     }));
 
-    let opts = ConvertOptions {
-        workers: args.threads,
+    let mut opts = ConvertOptions {
         las_version,
         on_event,
         ..Default::default()
     };
+
+    if args.threads != 0 {
+        opts.workers = args.threads;
+    }
 
     let input_path = args.path;
     let output_path = PathBuf::from(args.output);
