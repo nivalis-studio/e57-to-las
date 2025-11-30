@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use e2las::{ConvertOptions, Result, convert, convert_split, parallel};
+use e57_to_las::{ConvertOptions, Result, convert, convert_split, parallel};
 
 fn main() -> Result<()> {
     let start = Instant::now();
