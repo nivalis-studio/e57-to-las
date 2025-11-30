@@ -1,3 +1,112 @@
+//! I/O abstractions for reading E57 sources and writing LAS outputs.
+//!
+//! This module provides traits that abstract over different input and output types,
+//! allowing the conversion functions to work with file system paths, in-memory buffers,
+//! network streams, and custom I/O implementations.
+//!
+//! # Reading Sources
+//!
+//! E57 sources can be provided as:
+//! - File paths: `&Path`, `PathBuf`, `&str`, `String`
+//! - File handles: `File`, `BufReader<File>`
+//! - Memory: `Vec<u8>`, `&[u8]`, arrays
+//! - Custom: Any type implementing the traits
+//!
+//! For single-use conversion ([`convert`](crate::convert)), use types implementing [`ReaderOnce`].
+//! For parallel or split conversion, use types implementing [`ReaderFactory`] (typically references).
+//!
+//! # Writing Sinks
+//!
+//! LAS outputs can be written to:
+//! - File paths: `&Path`, `PathBuf`, `&str`, `String`
+//! - File handles: `File`, `BufWriter<File>`
+//! - Memory: `Vec<u8>`, `&mut [u8]`, arrays
+//! - Custom: Any type implementing the traits
+//!
+//! For merged output ([`convert`](crate::convert)), use types implementing [`WriterOnce`].
+//! For split output ([`convert_split`](crate::convert_split)), use types implementing [`WriterFactory`].
+//!
+//! # Implementing Custom I/O Types
+//!
+//! You can implement these traits for custom types to support specialized use cases beyond standard file I/O.
+//!
+//! ## Use Cases for Custom Implementations
+//!
+//! - **Network streams**: Read E57 from HTTP/cloud storage, write LAS to remote endpoints
+//! - **In-memory processing**: Convert data without file system access
+//! - **Compression**: Apply custom compression or encryption during conversion
+//! - **Databases**: Read/write point clouds from database BLOBs
+//! - **Testing**: Mock I/O for unit tests
+//!
+//! ## Performance
+//!
+//! **You should wrap your readers and writers in [`BufReader`] and [`BufWriter`] (or a custom buffering wrapper)** to avoid
+//! performance degradation. The E57 and LAS formats perform many small read/write operations, and
+//! unbuffered I/O can be 100-1000x slower.
+//!
+//! ## Example: Custom Network Source
+//!
+//! ```no_run
+//! use e57_to_las::io::{ReaderOnce, ReaderFactory};
+//! use std::io::{BufReader, Cursor, Read, Seek};
+//!
+//! // Custom type that downloads E57 data from a URL
+//! struct NetworkSource {
+//!     url: String,
+//! }
+//!
+//! impl NetworkSource {
+//!     fn download(&self) -> e57_to_las::Result<Vec<u8>> {
+//!         // Download implementation (simplified)
+//!         # Ok(vec![])
+//!         // let response = reqwest::blocking::get(&self.url)?;
+//!         // Ok(response.bytes()?.to_vec())
+//!     }
+//! }
+//!
+//! impl ReaderOnce for NetworkSource {
+//!     // Use BufReader for performance !
+//!     type Reader = BufReader<Cursor<Vec<u8>>>;
+//!
+//!     fn try_into_reader(self) -> e57_to_las::Result<Self::Reader> {
+//!         let data = self.download()?;
+//!         // Wrap in BufReader to avoid performance issues
+//!         Ok(BufReader::new(Cursor::new(data)))
+//!     }
+//! }
+//!
+//! // Now can use with conversion functions
+//! # fn example() -> e57_to_las::Result<()> {
+//! use e57_to_las::{convert, ConvertOptions};
+//! let source = NetworkSource { url: "https://example.com/scan.e57".to_string() };
+//! convert(source, "output.las", &ConvertOptions::default())?;
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ## Why `File` Cannot Implement `ReaderFactory`
+//!
+//! You might notice that `File` implements `ReaderOnce` but not `ReaderFactory`. This is a deliberate
+//! safety decision:
+//!
+//! `ReaderFactory` requires creating multiple independent readers from the same source. While you could
+//! theoretically clone a `File` handle, doing so creates multiple descriptors pointing to the same
+//! underlying file with **shared seek positions**. This leads to data races and corrupted reads in parallel contexts.
+//!
+//! For parallel/factory operations, use path types (`&Path`, `&str`) instead, which safely
+//! create independent file handles.
+//!
+//! ## Automatic Implementations for Path Types
+//!
+//! Most types implementing `AsRef<Path>` automatically get implementations of all four I/O traits
+//! (`ReaderOnce`, `ReaderFactory`, `WriterOnce`, `WriterFactory`). These implementations:
+//!
+//! - Open files using `File::open()` or `File::create()`
+//! - **Automatically wrap in `BufReader`/`BufWriter`** for optimal performance
+//! - Handle naming for split conversions (appending point cloud names/indices)
+//!
+//! This covers the common use case with zero additional code.
+
 mod read;
 mod write;
 

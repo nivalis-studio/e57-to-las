@@ -1,3 +1,51 @@
+//! Parallel conversion functions for improved performance.
+//!
+//! This module provides multi-threaded versions of the conversion functions that
+//! can significantly improve performance on multi-core systems, especially for
+//! large E57 sources with multiple point clouds.
+//!
+//! # Performance Characteristics
+//!
+//! The parallel implementation uses a producer-consumer architecture:
+//! - Multiple worker threads read and convert point clouds concurrently
+//! - Points are batched to reduce synchronization overhead
+//! - A dedicated writer thread serializes LAS output to maintain file format consistency
+//!
+//! Typical speedup: 2-4x on 4-core systems, scaling with available cores and number
+//! of point clouds.
+//!
+//! # Configuration
+//!
+//! Tune performance using [`ConvertOptions`](crate::ConvertOptions):
+//! - `workers`: Number of concurrent reader threads (default: number of CPU cores)
+//! - `batch_size`: Points per batch (default: 128,000)
+//! - `queue_size`: Maximum batches in flight (default: 8)
+//!
+//! # Requirements
+//!
+//! Parallel functions require:
+//! - The `parallel` feature (enabled by default)
+//! - Source implementing [`ReaderFactory`](crate::io::ReaderFactory) (use `&path` instead of `path`)
+//! - Sufficient memory for batching and queuing
+//!
+//! # Examples
+//!
+//! ```no_run
+//! # #[cfg(feature = "parallel")]
+//! # fn example() -> e57_to_las::Result<()> {
+//! use e57_to_las::{parallel, ConvertOptions};
+//!
+//! let opts = ConvertOptions {
+//!     workers: 4,
+//!     batch_size: 100_000,
+//!     ..Default::default()
+//! };
+//!
+//! // Note: Use &"input.e57" (reference) for ReaderFactory
+//! parallel::convert(&"large_scan.e57", "output.las", &opts)?;
+//! # Ok(())
+//! # }
+//! ```
 
 use std::{
     sync::Arc,
@@ -14,6 +62,58 @@ use crate::{
     io::{ReaderFactory, WritePointCloudCtx, WriterFactory, WriterOnce},
 };
 
+/// Convert an E57 source to a single LAS output using parallel processing.
+///
+/// This is the parallel version of [`convert`](crate::convert). It uses multiple
+/// worker threads to read and convert point clouds concurrently, providing
+/// significant performance improvements for large sources.
+///
+/// # Architecture
+///
+/// - Worker threads (configurable via `opts.workers`) read point clouds in parallel
+/// - Each worker converts points in batches (size controlled by `opts.batch_size`)
+/// - Batches are sent through a bounded queue (size `opts.queue_size`) to the writer
+/// - A single writer thread serializes output to maintain LAS file format consistency
+///
+/// # Performance Tuning
+///
+/// - **Fewer, larger point clouds**: Increase `workers` to match cloud count
+/// - **Many small point clouds**: Reduce `batch_size` to avoid memory overhead
+/// - **Memory constrained**: Reduce `queue_size` and `batch_size`
+/// - **I/O bound**: Increasing parallelism won't help; optimize disk access instead
+///
+/// # Examples
+///
+/// ```no_run
+/// # #[cfg(feature = "parallel")]
+/// # fn example() -> e57_to_las::Result<()> {
+/// use e57_to_las::{parallel, ConvertOptions};
+///
+/// let opts = ConvertOptions {
+///     workers: 4,
+///     batch_size: 128_000,
+///     queue_size: 8,
+///     ..Default::default()
+/// };
+///
+/// // Use reference (&) for ReaderFactory
+/// parallel::convert(&"input.e57", "output.las", &opts)?;
+/// # Ok(())
+/// # }
+/// ```
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - The E57 source cannot be opened or parsed
+/// - The LAS output cannot be created or written
+/// - Any worker thread panics (reported as [`Error::Internal`](crate::Error::Internal))
+/// - Point conversion fails
+///
+/// # See also
+///
+/// - [`convert`](crate::convert) - Sequential version requiring less memory
+/// - [`convert_split`] - Parallel split conversion
 pub fn convert<I, O>(source: &I, sink: O, opts: &ConvertOptions) -> Result<O::Writer>
 where
     I: ReaderFactory,
@@ -98,6 +198,59 @@ where
     join_all_workers(readers_handles, writer_handle)
 }
 
+/// Convert an E57 source to multiple LAS outputs using parallel processing.
+///
+/// This is the parallel version of [`convert_split`](crate::convert_split). Each point
+/// cloud is written to a separate LAS output, with multiple point clouds processed
+/// concurrently by worker threads.
+///
+/// # Architecture
+///
+/// - Worker threads read and convert point clouds in parallel
+/// - Each point cloud gets its own LAS output with independent header configuration
+/// - A single writer thread multiplexes batches to the appropriate outputs
+/// - Output naming follows the same rules as [`convert_split`](crate::convert_split)
+///
+/// # Performance Considerations
+///
+/// Split conversion can be faster than merged conversion because:
+/// - No global bounds calculation required upfront
+/// - Each output can be independently optimized
+/// - Writer thread has less work (no coordinate merging)
+///
+/// However, it creates more outputs which may not be desirable for all workflows.
+///
+/// # Examples
+///
+/// ```no_run
+/// # #[cfg(feature = "parallel")]
+/// # fn example() -> e57_to_las::Result<()> {
+/// use e57_to_las::{parallel, ConvertOptions};
+///
+/// let opts = ConvertOptions {
+///     workers: 4,
+///     ..Default::default()
+/// };
+///
+/// // Creates output_0.las, output_1.las, etc.
+/// let writers = parallel::convert_split("input.e57", "output.las", &opts)?;
+/// println!("Created {} LAS outputs", writers.len());
+/// # Ok(())
+/// # }
+/// ```
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - The E57 source cannot be opened or parsed
+/// - Any LAS output cannot be created or written
+/// - Any worker thread panics
+/// - Point conversion fails
+///
+/// # See also
+///
+/// - [`convert_split`](crate::convert_split) - Sequential version
+/// - [`convert`] - Parallel merged conversion
 pub fn convert_split<I, O>(source: I, sink: O, opts: &ConvertOptions) -> Result<Vec<O::Writer>>
 where
     I: ReaderFactory,
