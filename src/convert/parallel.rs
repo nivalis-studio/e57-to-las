@@ -169,12 +169,12 @@ where
 
                     buf.push(las_point);
 
-                    if buf.len() == opts.batch_size {
+                    if buf.len() == buf.capacity() {
                         let full = std::mem::take(&mut buf);
                         tx_writer
                             .send(full)
                             .map_err(|_| Error::Internal("writer thread dropped".into()))?;
-                        buf.reserve(opts.batch_size);
+                        buf.reserve_exact(opts.batch_size);
                     }
                 }
 
@@ -333,12 +333,12 @@ where
 
                     buf.push(las_point);
 
-                    if buf.len() == opts.batch_size {
+                    if buf.len() == buf.capacity() {
                         let full = std::mem::take(&mut buf);
                         tx_msg
                             .send((i, full))
                             .map_err(|_| Error::Internal("writer thread dropped".into()))?;
-                        buf.reserve(opts.batch_size);
+                        buf.reserve_exact(opts.batch_size);
                     }
                 }
 
