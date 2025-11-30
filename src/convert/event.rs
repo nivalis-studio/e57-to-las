@@ -2,9 +2,14 @@ use std::{sync::Arc, thread};
 
 #[non_exhaustive]
 pub enum Event {
+    #[non_exhaustive]
     PointCloudStarted {
         idx: usize,
-        pc: Box<e57::PointCloud>,
+        name: Option<String>,
+        description: Option<String>,
+        points_count: u64,
+        translation: (f64, f64, f64),
+        rotation: (f64, f64, f64, f64),
     },
     PointCloudEnded {
         idx: usize,
@@ -15,7 +20,19 @@ impl Event {
     pub(crate) fn pointcloud_started(idx: usize, pc: &e57::PointCloud) -> Self {
         Self::PointCloudStarted {
             idx,
-            pc: Box::new(pc.clone()),
+            name: pc.name.clone(),
+            description: pc.description.clone(),
+            points_count: pc.records,
+            translation: pc
+                .transform
+                .as_ref()
+                .map(|t| (t.translation.x, t.translation.y, t.translation.z))
+                .unwrap_or_default(),
+            rotation: pc
+                .transform
+                .as_ref()
+                .map(|t| (t.rotation.w, t.rotation.x, t.rotation.y, t.rotation.z))
+                .unwrap_or_default(),
         }
     }
 
