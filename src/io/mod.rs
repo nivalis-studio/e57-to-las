@@ -2,7 +2,7 @@ mod read;
 mod write;
 
 pub use read::{ReaderFactory, ReaderOnce};
-pub use write::{WriteCtx, WriterFactory, WriterOnce};
+pub use write::{WritePointCloudCtx, WriterFactory, WriterOnce};
 
 use crate::Result;
 use std::{
@@ -46,11 +46,11 @@ macro_rules! impl_pathlike {
         impl WriterFactory for $t {
             type Writer = BufWriter<File>;
 
-            fn create_writer(&self, ctx: &WriteCtx) -> Result<Self::Writer> {
+            fn create_writer(&self, ctx: &WritePointCloudCtx) -> Result<Self::Writer> {
                 let mut path = PathBuf::from(self);
-                let cloud_id = match ctx.pc_name {
+                let cloud_id = match ctx.name {
                     Some(n) => n.to_owned(),
-                    None => ctx.pc_idx.to_string(),
+                    None => ctx.idx.to_string(),
                 };
 
                 match path.extension() {

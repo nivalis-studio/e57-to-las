@@ -6,7 +6,7 @@ use crate::{
         e57::{E57PointExt, PointMeta},
         las::LasHeaderExt,
     },
-    io::{ReaderOnce, WriteCtx, WriterFactory, WriterOnce},
+    io::{ReaderOnce, WritePointCloudCtx, WriterFactory, WriterOnce},
 };
 pub use options::ConvertOptions;
 
@@ -49,7 +49,10 @@ where
         let (header, point_format) = las::Header::from_pointcloud(pc, opts)?;
 
         let pc_name = pc.name.as_ref();
-        let ctx = WriteCtx { pc_idx: i, pc_name };
+        let ctx = WritePointCloudCtx {
+            idx: i,
+            name: pc_name,
+        };
 
         let mut writer = las::Writer::new(sink.create_writer(&ctx)?, header)?;
 
@@ -80,7 +83,7 @@ pub mod parallel {
             e57::{E57PointExt, PointMeta},
             las::LasHeaderExt,
         },
-        io::{ReaderFactory, WriteCtx, WriterFactory, WriterOnce},
+        io::{ReaderFactory, WritePointCloudCtx, WriterFactory, WriterOnce},
     };
 
     pub fn convert<I, O>(source: &I, sink: O, opts: &ConvertOptions) -> Result<O::Writer>
@@ -175,9 +178,9 @@ pub mod parallel {
 
             metas.push(PointMeta::new(point_format, pc));
 
-            let ctx = WriteCtx {
-                pc_idx: i,
-                pc_name: pc.name.as_ref(),
+            let ctx = WritePointCloudCtx {
+                idx: i,
+                name: pc.name.as_ref(),
             };
 
             let writer = sink.create_writer(&ctx)?;
