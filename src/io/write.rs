@@ -1,5 +1,5 @@
 use std::{
-    fs::{File, create_dir_all},
+    fs::File,
     io::{BufWriter, Seek, Write},
     path::{Path, PathBuf},
 };
@@ -31,41 +31,51 @@ impl WriterOnce for File {
     }
 }
 
-impl WriterOnce for &'static str {
-    type Writer = BufWriter<File>;
+macro_rules! impl_pathlike {
+    ($t:ty) => {
+        impl WriterOnce for $t {
+            type Writer = BufWriter<File>;
 
-    fn try_into_writer(self) -> Result<Self::Writer> {
-        let file = File::create(self)?;
-        Ok(BufWriter::new(file))
-    }
-}
-
-impl WriterFactory for &'static str {
-    type Writer = BufWriter<File>;
-    fn create_writer(&self, ctx: &WriteCtx) -> Result<Self::Writer> {
-        let file = create_file_with_id(self, ctx.pc_name.unwrap_or(&ctx.pc_idx.to_string()))?;
-        Ok(BufWriter::new(file))
-    }
-}
-
-fn create_file_with_id<T: AsRef<Path>>(path: T, stream_id: &str) -> Result<File> {
-    let mut path = PathBuf::from(path.as_ref());
-
-    match path.extension() {
-        Some(e) => {
-            let file_stem = path.file_stem().unwrap_or_default().to_string_lossy();
-            let filename = format!("{file_stem}_{stream_id}.{}", e.to_string_lossy());
-            path.set_file_name(filename);
+            fn try_into_writer(self) -> Result<Self::Writer> {
+                let path: &Path = self.as_ref();
+                let file = File::open(path)?;
+                Ok(BufWriter::new(file))
+            }
         }
-        None => {
-            let filename = format!("{stream_id}.las");
-            path = path.join(filename);
+
+        impl WriterFactory for $t {
+            type Writer = BufWriter<File>;
+
+            fn create_writer(&self, ctx: &WriteCtx) -> Result<Self::Writer> {
+                let mut path = PathBuf::from(self);
+                let cloud_id = match ctx.pc_name {
+                    Some(n) => n.to_owned(),
+                    None => ctx.pc_idx.to_string(),
+                };
+
+                match path.extension() {
+                    Some(e) => {
+                        let file_stem = path.file_stem().unwrap_or_default().to_string_lossy();
+                        let filename = format!("{file_stem}_{cloud_id}.{}", e.to_string_lossy());
+                        path.set_file_name(filename);
+                    }
+                    None => {
+                        let filename = format!("{cloud_id}.las");
+                        path = path.join(filename);
+                    }
+                };
+
+                let file = File::create(path)?;
+
+                Ok(BufWriter::new(file))
+            }
         }
     };
-
-    if let Some(p) = path.parent() {
-        create_dir_all(p)?;
-    }
-
-    Ok(File::create(path)?)
 }
+
+impl_pathlike!(&Path);
+impl_pathlike!(PathBuf);
+impl_pathlike!(&PathBuf);
+impl_pathlike!(&str);
+impl_pathlike!(String);
+impl_pathlike!(&String);
