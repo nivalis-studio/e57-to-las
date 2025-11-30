@@ -1,7 +1,7 @@
 use std::{
+    collections::VecDeque,
     fs::File,
-    io::{BufWriter, Seek, Write},
-    path::{Path, PathBuf},
+    io::{BufWriter, Cursor, Seek, Write},
 };
 
 use crate::Result;
@@ -25,57 +25,64 @@ pub struct WriteCtx<'a> {
 
 impl WriterOnce for File {
     type Writer = BufWriter<Self>;
-
     fn try_into_writer(self) -> Result<Self::Writer> {
         Ok(BufWriter::new(self))
     }
 }
 
-macro_rules! impl_pathlike {
-    ($t:ty) => {
-        impl WriterOnce for $t {
-            type Writer = BufWriter<File>;
-
-            fn try_into_writer(self) -> Result<Self::Writer> {
-                let path: &Path = self.as_ref();
-                let file = File::open(path)?;
-                Ok(BufWriter::new(file))
-            }
-        }
-
-        impl WriterFactory for $t {
-            type Writer = BufWriter<File>;
-
-            fn create_writer(&self, ctx: &WriteCtx) -> Result<Self::Writer> {
-                let mut path = PathBuf::from(self);
-                let cloud_id = match ctx.pc_name {
-                    Some(n) => n.to_owned(),
-                    None => ctx.pc_idx.to_string(),
-                };
-
-                match path.extension() {
-                    Some(e) => {
-                        let file_stem = path.file_stem().unwrap_or_default().to_string_lossy();
-                        let filename = format!("{file_stem}_{cloud_id}.{}", e.to_string_lossy());
-                        path.set_file_name(filename);
-                    }
-                    None => {
-                        let filename = format!("{cloud_id}.las");
-                        path = path.join(filename);
-                    }
-                };
-
-                let file = File::create(path)?;
-
-                Ok(BufWriter::new(file))
-            }
-        }
-    };
+impl<T> WriterOnce for BufWriter<T>
+where
+    T: Write + Seek + Send + 'static,
+{
+    type Writer = Self;
+    fn try_into_writer(self) -> Result<Self::Writer> {
+        Ok(self)
+    }
 }
 
-impl_pathlike!(&Path);
-impl_pathlike!(PathBuf);
-impl_pathlike!(&PathBuf);
-impl_pathlike!(&str);
-impl_pathlike!(String);
-impl_pathlike!(&String);
+impl WriterOnce for &'static mut [u8] {
+    type Writer = BufWriter<Cursor<Self>>;
+    fn try_into_writer(self) -> Result<Self::Writer> {
+        Ok(BufWriter::new(Cursor::new(self)))
+    }
+}
+
+impl WriterOnce for Vec<u8> {
+    type Writer = BufWriter<Cursor<Self>>;
+    fn try_into_writer(self) -> Result<Self::Writer> {
+        Ok(BufWriter::new(Cursor::new(self)))
+    }
+}
+
+impl WriterOnce for VecDeque<u8> {
+    type Writer = BufWriter<Cursor<Vec<u8>>>;
+    fn try_into_writer(self) -> Result<Self::Writer> {
+        Ok(BufWriter::new(Cursor::new(self.into())))
+    }
+}
+
+impl<const N: usize> WriterOnce for [u8; N] {
+    type Writer = BufWriter<Cursor<Self>>;
+    fn try_into_writer(self) -> Result<Self::Writer> {
+        Ok(BufWriter::new(Cursor::new(self)))
+    }
+}
+
+impl<const N: usize> WriterOnce for &'static mut [u8; N] {
+    type Writer = BufWriter<Cursor<&'static mut [u8]>>;
+    fn try_into_writer(self) -> Result<Self::Writer> {
+        Ok(BufWriter::new(Cursor::new(self)))
+    }
+}
+
+impl<F, W> WriterFactory for F
+where
+    F: Fn(&WriteCtx) -> Result<W>,
+    W: Write + Seek + Send + 'static,
+{
+    type Writer = W;
+
+    fn create_writer(&self, ctx: &WriteCtx) -> Result<Self::Writer> {
+        self(ctx)
+    }
+}
