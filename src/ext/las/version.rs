@@ -1,4 +1,4 @@
-use std::ops::Deref;
+use std::{ops::Deref, str::FromStr};
 
 use crate::{Error, Result};
 
@@ -69,7 +69,7 @@ impl TryFrom<(u8, u8)> for LasVersion {
         }
 
         match minor {
-            0..4 => Ok(Self((major, minor))),
+            0..=4 => Ok(Self((major, minor))),
             _ => Err(Error::InvalidLasVersion(
                 "minor should be between 0 and 4".into(),
             )),
@@ -87,6 +87,34 @@ impl From<LasVersion> for las::Version {
     fn from(value: LasVersion) -> Self {
         let (major, minor) = value.0;
         las::Version::new(major, minor)
+    }
+}
+
+impl FromStr for LasVersion {
+    type Err = Error;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        let mut parts = s.split('.');
+
+        let major = parts
+            .next()
+            .ok_or(Error::InvalidLasVersion("missing major version".into()))?
+            .parse::<u8>()
+            .map_err(|_| Error::InvalidLasVersion("invalid major version".into()))?;
+
+        let minor = parts
+            .next()
+            .ok_or(Error::InvalidLasVersion("missing minor version".into()))?
+            .parse::<u8>()
+            .map_err(|_| Error::InvalidLasVersion("invalid minor version".into()))?;
+
+        if parts.next().is_some() {
+            return Err(Error::InvalidLasVersion(
+                "too many components (expected MAJOR.MINOR)".into(),
+            ));
+        }
+
+        LasVersion::new(major, minor)
     }
 }
 
