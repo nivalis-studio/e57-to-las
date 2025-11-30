@@ -5,7 +5,7 @@ use e57_to_las::{ConvertOptions, Result, convert, convert_split, parallel};
 fn main() -> Result<()> {
     let start = Instant::now();
     let input_path = "./examples/Trimble_StSulpice-Cloud-50mm.e57";
-    let output_path = "./output/Trimble_StSulpice-Cloud-50mm.las";
+    let output_path = "./outputs/Trimble_StSulpice-Cloud-50mm.las";
 
     let opts: ConvertOptions = Default::default();
 

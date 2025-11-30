@@ -38,7 +38,7 @@ macro_rules! impl_pathlike {
 
             fn try_into_writer(self) -> Result<Self::Writer> {
                 let path: &Path = self.as_ref();
-                let file = File::open(path)?;
+                let file = File::create(path)?;
                 Ok(BufWriter::new(file))
             }
         }
