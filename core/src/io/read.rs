@@ -51,16 +51,12 @@ pub trait ReaderOnce: Sized {
 ///
 /// # Examples
 ///
-/// ```no_run
-/// # #[cfg(feature = "parallel")]
-/// # fn example() -> e57_to_las::Result<()> {
+/// ```rust
 /// use e57_to_las::{parallel, ConvertOptions, io::ReaderFactory};
 ///
 /// // &str implements ReaderFactory
 /// let input = "scan.e57";
 /// parallel::convert(&input, "output.las", &ConvertOptions::default())?;
-/// # Ok(())
-/// # }
 /// ```
 ///
 /// # See also

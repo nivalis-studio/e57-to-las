@@ -10,7 +10,7 @@
 //! - File paths: `&Path`, `PathBuf`, `&str`, `String`
 //! - File handles: `File`, `BufReader<File>`
 //! - Memory: `Vec<u8>`, `&[u8]`, arrays
-//! - Custom: Any type implementing the traits
+//! - Custom implementations
 //!
 //! For single-use conversion ([`convert`](crate::convert)), use types implementing [`ReaderOnce`].
 //! For parallel or split conversion, use types implementing [`ReaderFactory`] (typically references).
@@ -21,7 +21,7 @@
 //! - File paths: `&Path`, `PathBuf`, `&str`, `String`
 //! - File handles: `File`, `BufWriter<File>`
 //! - Memory: `Vec<u8>`, `&mut [u8]`, arrays
-//! - Custom: Any type implementing the traits
+//! - Custom implementations
 //!
 //! For merged output ([`convert`](crate::convert)), use types implementing [`WriterOnce`].
 //! For split output ([`convert_split`](crate::convert_split)), use types implementing [`WriterFactory`].
@@ -46,7 +46,7 @@
 //!
 //! ## Example: Custom Network Source
 //!
-//! ```no_run
+//! ```rust
 //! use e57_to_las::io::{ReaderOnce, ReaderFactory};
 //! use std::io::{BufReader, Cursor, Read, Seek};
 //!
@@ -76,20 +76,17 @@
 //! }
 //!
 //! // Now can use with conversion functions
-//! # fn example() -> e57_to_las::Result<()> {
 //! use e57_to_las::{convert, ConvertOptions};
 //! let source = NetworkSource { url: "https://example.com/scan.e57".to_string() };
 //! convert(source, "output.las", &ConvertOptions::default())?;
-//! # Ok(())
-//! # }
 //! ```
 //!
-//! ## Why `File` Cannot Implement `ReaderFactory`
+//! ## Why `File` Cannot Implement `ReaderFactory` or `WriterFactory`
 //!
-//! You might notice that `File` implements `ReaderOnce` but not `ReaderFactory`. This is a deliberate
+//! You might notice that `File` implements `ReaderOnce` and `WriterOnce` but not `ReaderFactory` nor `WriterFactory`. This is a deliberate
 //! safety decision:
 //!
-//! `ReaderFactory` requires creating multiple independent readers from the same source. While you could
+//! `ReaderFactory` and `WriterFactory` requires creating multiple independent readers/writers from the same source. While you could
 //! theoretically clone a `File` handle, doing so creates multiple descriptors pointing to the same
 //! underlying file with **shared seek positions**. This leads to data races and corrupted reads in parallel contexts.
 //!

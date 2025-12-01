@@ -30,9 +30,7 @@
 //!
 //! # Examples
 //!
-//! ```no_run
-//! # #[cfg(feature = "parallel")]
-//! # fn example() -> e57_to_las::Result<()> {
+//! ```rust
 //! use e57_to_las::{parallel, ConvertOptions};
 //!
 //! let opts = ConvertOptions {
@@ -43,8 +41,6 @@
 //!
 //! // Note: Use &"input.e57" (reference) for ReaderFactory
 //! parallel::convert(&"large_scan.e57", "output.las", &opts)?;
-//! # Ok(())
-//! # }
 //! ```
 
 use std::{
@@ -84,9 +80,7 @@ use crate::{
 ///
 /// # Examples
 ///
-/// ```no_run
-/// # #[cfg(feature = "parallel")]
-/// # fn example() -> e57_to_las::Result<()> {
+/// ```rust
 /// use e57_to_las::{parallel, ConvertOptions};
 ///
 /// let opts = ConvertOptions {
@@ -98,8 +92,6 @@ use crate::{
 ///
 /// // Use reference (&) for ReaderFactory
 /// parallel::convert(&"input.e57", "output.las", &opts)?;
-/// # Ok(())
-/// # }
 /// ```
 ///
 /// # Errors
@@ -222,9 +214,7 @@ where
 ///
 /// # Examples
 ///
-/// ```no_run
-/// # #[cfg(feature = "parallel")]
-/// # fn example() -> e57_to_las::Result<()> {
+/// ```rust
 /// use e57_to_las::{parallel, ConvertOptions};
 ///
 /// let opts = ConvertOptions {
@@ -235,8 +225,6 @@ where
 /// // Creates output_0.las, output_1.las, etc.
 /// let writers = parallel::convert_split("input.e57", "output.las", &opts)?;
 /// println!("Created {} LAS outputs", writers.len());
-/// # Ok(())
-/// # }
 /// ```
 ///
 /// # Errors
