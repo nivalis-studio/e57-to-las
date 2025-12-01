@@ -16,7 +16,7 @@ exclude = ["/examples"]
 
 [dependencies]
 las = { version = "0.9.6" }
-e57 = { version = "0.11.10" }
+e57 = { version = "0.11.12", features = ["crc32c"] }
 thiserror = { version = "2.0.16" }
 flume = { version = "0.11.1" }
 
