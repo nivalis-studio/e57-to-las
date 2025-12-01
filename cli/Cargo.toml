@@ -10,7 +10,7 @@ authors.workspace = true
 publish = false
 
 [[bin]]
-name = "e57-to-las"
+name = "e57tolas"
 path = "src/main.rs"
 
 [dependencies]
