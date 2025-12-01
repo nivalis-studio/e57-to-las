@@ -71,9 +71,9 @@ fn main() -> Result<()> {
     let output_path = PathBuf::from(args.output);
 
     if args.stations {
-        parallel::convert_split(input_path, output_path.clone(), &opts).unwrap();
+        parallel::convert_split(input_path, output_path.clone(), &opts)?;
     } else {
-        parallel::convert(&input_path, output_path.clone(), &opts).unwrap();
+        parallel::convert(&input_path, output_path.clone(), &opts)?;
     }
 
     let stations: BTreeMap<usize, StationPoint> = {
@@ -86,8 +86,15 @@ fn main() -> Result<()> {
 
     let stations_file = File::create(output_path.parent().unwrap().join("stations.json"))?;
     let mut writer = BufWriter::new(stations_file);
-    serde_json::to_writer(&mut writer, &stations).unwrap();
-    writer.flush()?;
+
+    match serde_json::to_writer(&mut writer, &stations) {
+        Ok(_) => {
+            writer.flush()?;
+        }
+        Err(e) => {
+            eprintln!("station serialization failed: {e}");
+        }
+    }
 
     Ok(())
 }
