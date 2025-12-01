@@ -193,8 +193,6 @@ dependencies = [
  "flume",
  "las",
  "num_cpus",
- "serde",
- "serde_json",
  "thiserror",
 ]
 

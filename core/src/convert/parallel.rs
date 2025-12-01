@@ -367,14 +367,31 @@ fn join_all_workers<T>(
     readers_handles: Vec<JoinHandle<Result<()>>>,
     writer_handle: JoinHandle<Result<T>>,
 ) -> Result<T> {
+    let mut reader_errors = Vec::new();
     for h in readers_handles {
-        h.join()
-            .map_err(|_| Error::Internal("worker panicked".into()))??;
+        if let Err(e) = h
+            .join()
+            .map_err(|_| Error::Internal("worker panicked".into()))
+            .and_then(|r| r)
+        {
+            reader_errors.push(e);
+        }
     }
 
-    writer_handle
+    let writer_result = writer_handle
         .join()
-        .map_err(|_| Error::Internal("writer panicked".into()))?
+        .map_err(|_| Error::Internal("writer panicked".into()))?;
+
+    match writer_result {
+        Err(writer_error) => Err(writer_error),
+        Ok(result) => {
+            if let Some(reader_error) = reader_errors.into_iter().next() {
+                Err(reader_error)
+            } else {
+                Ok(result)
+            }
+        }
+    }
 }
 
 #[inline]
