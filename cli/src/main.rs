@@ -1,6 +1,6 @@
 use std::{
     collections::BTreeMap,
-    fs::File,
+    fs::{File, create_dir_all},
     io::{BufWriter, Write},
     path::PathBuf,
     str::FromStr,
@@ -8,7 +8,7 @@ use std::{
 };
 
 use clap::Parser;
-use e57_to_las::{ConvertOptions, Event, EventCallback, LasVersion, Result, parallel};
+use e57_to_las::{ConvertOptions, Event, LasVersion, Result, parallel};
 use serde::Serialize;
 
 #[derive(Parser)]
@@ -35,31 +35,8 @@ fn main() -> Result<()> {
 
     let las_version = LasVersion::from_str(&args.las_version)?;
 
-    let pointclouds = Arc::new(Mutex::new(vec![]));
-
-    let pcs = Arc::clone(&pointclouds);
-    let on_event: Option<EventCallback> = args.stations.then_some(Arc::new(move |e| match e {
-        Event::PointCloudStarted {
-            idx, translation, ..
-        } => {
-            println!("Saving pointcloud {idx}...");
-
-            let mut pointclouds = pcs.lock().unwrap();
-
-            let (x, y, z) = translation;
-            let station_point = StationPoint { x, y, z };
-
-            pointclouds.push((idx, station_point));
-        }
-        Event::PointCloudEnded { idx } => {
-            println!("Saved pointcloud {idx}");
-        }
-        _ => {}
-    }));
-
     let mut opts = ConvertOptions {
         las_version,
-        on_event,
         ..Default::default()
     };
 
@@ -70,29 +47,59 @@ fn main() -> Result<()> {
     let input_path = args.path;
     let output_path = PathBuf::from(args.output);
 
-    if args.stations {
-        parallel::convert_split(input_path, output_path.clone(), &opts)?;
+    create_dir_all(&output_path)?;
+
+    if !args.stations {
+        let out = output_path.join("output.las");
+        parallel::convert(&input_path, out, &opts)?;
     } else {
-        parallel::convert(&input_path, output_path.clone(), &opts)?;
-    }
+        let pointclouds = Arc::new(Mutex::new(vec![]));
+        let pcs = Arc::clone(&pointclouds);
 
-    let stations: BTreeMap<usize, StationPoint> = {
-        let mut guard = pointclouds.lock().unwrap();
+        opts.on_event = Some(Arc::new(move |e| match e {
+            Event::PointCloudStarted {
+                idx, translation, ..
+            } => {
+                println!("Saving pointcloud {idx}...");
 
-        let vec = std::mem::take(&mut *guard);
+                let mut pointclouds = pcs.lock().unwrap();
 
-        vec.into_iter().collect()
-    };
+                let (x, y, z) = translation;
+                let station_point = StationPoint { x, y, z };
 
-    let stations_file = File::create(output_path.parent().unwrap().join("stations.json"))?;
-    let mut writer = BufWriter::new(stations_file);
+                pointclouds.push((idx, station_point));
+            }
+            Event::PointCloudEnded { idx } => {
+                println!("Saved pointcloud {idx}");
+            }
+            _ => {}
+        }));
 
-    match serde_json::to_writer(&mut writer, &stations) {
-        Ok(_) => {
-            writer.flush()?;
-        }
-        Err(e) => {
-            eprintln!("station serialization failed: {e}");
+        parallel::convert_split(input_path, output_path.clone(), &opts)?;
+
+        let stations: BTreeMap<usize, StationPoint> = {
+            let mut guard = pointclouds.lock().unwrap();
+
+            let vec = std::mem::take(&mut *guard);
+
+            vec.into_iter().collect()
+        };
+
+        let parent_dir = match output_path.parent() {
+            Some(d) => d,
+            None => &output_path,
+        };
+
+        let stations_file = File::create(parent_dir.join("stations.json"))?;
+        let mut writer = BufWriter::new(stations_file);
+
+        match serde_json::to_writer(&mut writer, &stations) {
+            Ok(_) => {
+                writer.flush()?;
+            }
+            Err(e) => {
+                eprintln!("station serialization failed: {e}");
+            }
         }
     }
 
