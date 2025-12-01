@@ -1,0 +1,20 @@
+[package]
+name = "e57-to-las-cli"
+description = "CLI tool to convert E57 point cloud files to LAS"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish = false
+
+[[bin]]
+name = "e57-to-las"
+path = "src/main.rs"
+
+[dependencies]
+e57-to-las = { path = "../core", features = ["parallel"] }
+clap = { version = "4.5.53", features = ["derive"] }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = { version = "1.0.145" }

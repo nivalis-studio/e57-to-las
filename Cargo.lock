@@ -189,7 +189,6 @@ dependencies = [
 name = "e57-to-las"
 version = "0.9.0"
 dependencies = [
- "clap",
  "e57",
  "flume",
  "las",
@@ -197,6 +196,16 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+]
+
+[[package]]
+name = "e57-to-las-cli"
+version = "0.9.0"
+dependencies = [
+ "clap",
+ "e57-to-las",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

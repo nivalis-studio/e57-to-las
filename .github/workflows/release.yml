@@ -37,6 +37,7 @@ jobs:
       - uses: taiki-e/upload-rust-binary-action@v1
         with:
           bin: e57-to-las
+          manifest_path: cli/Cargo.toml
           tar: unix
           zip: all
           features: ${{ matrix.features || '' }}
