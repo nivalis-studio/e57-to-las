@@ -6,8 +6,8 @@ use anyhow::{Context, Result};
 
 use crate::convert_pointcloud::{convert_pointcloud, convert_pointclouds};
 
-use crate::LasVersion;
 use crate::stations::save_stations;
+use crate::LasVersion;
 
 /// Converts a given e57 file into LAS format and, optionally, as stations.
 ///
@@ -60,8 +60,14 @@ pub fn convert_file(
             .try_for_each(|(index, pointcloud)| -> Result<()> {
                 println!("Saving pointcloud {}...", index);
 
-                convert_pointcloud(index, pointcloud, Path::new(&input_path), Path::new(&output_path), &las_version)
-                    .context(format!("Error while converting pointcloud {}", index))?;
+                convert_pointcloud(
+                    index,
+                    pointcloud,
+                    Path::new(&input_path),
+                    Path::new(&output_path),
+                    &las_version,
+                )
+                .context(format!("Error while converting pointcloud {}", index))?;
 
                 Ok(())
             })
@@ -79,6 +85,7 @@ pub fn convert_file(
 mod tests {
     use super::*;
     use rayon::ThreadPoolBuilder;
+    use std::path::Path;
 
     #[test]
     fn test_convert_bunny() {
@@ -88,6 +95,24 @@ mod tests {
             .expect("Failed to build thread pool");
         pool.install(|| {
             let input_path = String::from("examples/bunnyDouble.e57");
+            if !Path::new(&input_path).is_file() {
+                panic!(
+                    "Missing test fixture '{}'. Run `git lfs pull` to retrieve large test files.",
+                    input_path
+                );
+            }
+
+            let is_lfs_pointer = std::fs::read_to_string(&input_path)
+                .map(|content| content.starts_with("version https://git-lfs.github.com/spec/v1\n"))
+                .unwrap_or(false);
+
+            if is_lfs_pointer {
+                panic!(
+                    "Test fixture '{}' is a Git LFS pointer. Run `git lfs pull` to retrieve large test files.",
+                    input_path
+                );
+            }
+
             let output_path = String::from("examples");
             let number_of_threads = 4;
             let as_stations = true;
