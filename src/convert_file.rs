@@ -6,8 +6,8 @@ use anyhow::{Context, Result};
 
 use crate::convert_pointcloud::{convert_pointcloud, convert_pointclouds};
 
-use crate::stations::save_stations;
 use crate::LasVersion;
+use crate::stations::save_stations;
 
 /// Converts a given e57 file into LAS format and, optionally, as stations.
 ///
@@ -40,48 +40,52 @@ pub fn convert_file(
     as_stations: bool,
     las_version: LasVersion,
 ) -> Result<()> {
-    rayon::ThreadPoolBuilder::new()
+    let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(number_of_threads)
-        .build_global()
-        .context("Failed to initialize the global thread pool for rayon")?;
+        .build()
+        .context("Failed to initialize the thread pool for rayon")?;
 
-    let e57_reader = e57::E57Reader::from_file(&input_path).context("Failed to open e57 file")?;
+    pool.install(|| {
+        let e57_reader =
+            e57::E57Reader::from_file(&input_path).context("Failed to open e57 file")?;
 
-    if e57_reader.format_name() != "ASTM E57 3D Imaging Data File" {
-        return Err(anyhow::anyhow!("Invalid file format"));
-    }
+        if e57_reader.format_name() != "ASTM E57 3D Imaging Data File" {
+            return Err(anyhow::anyhow!("Invalid file format"));
+        }
 
-    let pointclouds = e57_reader.pointclouds();
+        let pointclouds = e57_reader.pointclouds();
 
-    if as_stations {
-        pointclouds
-            .par_iter()
-            .enumerate()
-            .try_for_each(|(index, pointcloud)| -> Result<()> {
-                println!("Saving pointcloud {}...", index);
+        if as_stations {
+            pointclouds
+                .par_iter()
+                .enumerate()
+                .try_for_each(|(index, pointcloud)| -> Result<()> {
+                    println!("Saving pointcloud {}...", index);
 
-                convert_pointcloud(
-                    index,
-                    pointcloud,
-                    Path::new(&input_path),
-                    Path::new(&output_path),
-                    &las_version,
-                )
-                .context(format!("Error while converting pointcloud {}", index))?;
+                    convert_pointcloud(
+                        index,
+                        pointcloud,
+                        Path::new(&input_path),
+                        Path::new(&output_path),
+                        &las_version,
+                    )
+                    .context(format!("Error while converting pointcloud {}", index))?;
 
-                Ok(())
-            })
-            .context("Error during the parallel processing of pointclouds")?;
+                    Ok(())
+                })
+                .context("Error during the parallel processing of pointclouds")?;
 
-        save_stations(output_path, &pointclouds)?;
-    } else {
-        convert_pointclouds(e57_reader, Path::new(&output_path), &las_version)
-            .context("Error during the parallel processing of pointclouds")?;
-    }
-    Ok(())
+            save_stations(output_path, &pointclouds)?;
+        } else {
+            convert_pointclouds(e57_reader, Path::new(&output_path), &las_version)
+                .context("Error during the parallel processing of pointclouds")?;
+        }
+        Ok(())
+    })
 }
 
 #[cfg(test)]
+#[allow(clippy::panic, clippy::expect_used)]
 mod tests {
     use super::*;
     use rayon::ThreadPoolBuilder;
@@ -127,5 +131,51 @@ mod tests {
 
             assert!(result.is_ok());
         });
+    }
+
+    #[test]
+    fn test_convert_file_twice_in_same_process() {
+        let input_path = String::from("examples/bunnyDouble.e57");
+        if !Path::new(&input_path).is_file() {
+            panic!(
+                "Missing test fixture '{}'. Run `git lfs pull` to retrieve large test files.",
+                input_path
+            );
+        }
+
+        let is_lfs_pointer = std::fs::read_to_string(&input_path)
+            .map(|content| content.starts_with("version https://git-lfs.github.com/spec/v1\n"))
+            .unwrap_or(false);
+
+        if is_lfs_pointer {
+            panic!(
+                "Test fixture '{}' is a Git LFS pointer. Run `git lfs pull` to retrieve large test files.",
+                input_path
+            );
+        }
+
+        let output_path = String::from("examples");
+        let number_of_threads = 4;
+        let as_stations = true;
+        let las_version = LasVersion::new(1, 3).expect("Failed to create LAS version");
+
+        let first = convert_file(
+            input_path.clone(),
+            output_path.clone(),
+            number_of_threads,
+            as_stations,
+            las_version,
+        );
+        assert!(first.is_ok(), "first conversion failed: {:?}", first);
+
+        let las_version = LasVersion::new(1, 3).expect("Failed to create LAS version");
+        let second = convert_file(
+            input_path,
+            output_path,
+            number_of_threads,
+            as_stations,
+            las_version,
+        );
+        assert!(second.is_ok(), "second conversion failed: {:?}", second);
     }
 }
