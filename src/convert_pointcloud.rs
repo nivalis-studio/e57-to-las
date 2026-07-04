@@ -4,7 +4,7 @@ use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
-use crate::get_las_writer::get_las_writer;
+use crate::get_las_writer::{PointBounds, get_las_writer};
 use crate::{LasVersion, convert_point::convert_point, utils::create_path};
 
 use anyhow::{Context, Result};
@@ -50,7 +50,7 @@ pub fn convert_pointcloud(
         .pointcloud_simple(pointcloud)
         .context("Unable to get point cloud iterator: ")?;
 
-    let mut max_cartesian: f64 = 0.0;
+    let mut bounds = PointBounds::default();
 
     let mut las_points: Vec<las::Point> = Vec::new();
     let mut has_color = false;
@@ -67,12 +67,7 @@ pub fn convert_pointcloud(
             None => continue,
         };
 
-        let abs_extent = las_point
-            .x
-            .abs()
-            .max(las_point.y.abs())
-            .max(las_point.z.abs());
-        max_cartesian = max_cartesian.max(abs_extent);
+        bounds.update(&las_point);
         las_points.push(las_point);
     }
 
@@ -82,7 +77,7 @@ pub fn convert_pointcloud(
     let mut writer = get_las_writer(
         pointcloud.clone().guid,
         path,
-        max_cartesian,
+        bounds,
         has_color,
         las_version,
     )
@@ -130,7 +125,7 @@ pub fn convert_pointclouds(
     let guid = &e57_reader.guid().to_owned();
     let e57_reader_mutex = Mutex::new(e57_reader);
 
-    let max_cartesian_mutex = Mutex::new(0.0_f64);
+    let bounds_mutex = Mutex::new(PointBounds::default());
     let las_points: Vec<las::Point> = Vec::new();
     let las_points_mutex = Mutex::new(las_points);
     let has_color = Arc::new(AtomicBool::new(false));
@@ -146,7 +141,7 @@ pub fn convert_pointclouds(
                 .pointcloud_simple(pointcloud)
                 .context("Unable to get point cloud iterator: ")?;
 
-            let mut local_max_cartesian: f64 = 0.0;
+            let mut local_bounds = PointBounds::default();
             for p in pointcloud_reader {
                 let point = p.context("Could not read point: ")?;
 
@@ -159,23 +154,17 @@ pub fn convert_pointclouds(
                     None => continue,
                 };
 
-                let abs_extent = las_point
-                    .x
-                    .abs()
-                    .max(las_point.y.abs())
-                    .max(las_point.z.abs());
-                local_max_cartesian = local_max_cartesian.max(abs_extent);
+                local_bounds.update(&las_point);
                 las_points_mutex
                     .lock()
                     .unwrap_or_else(|e| e.into_inner())
                     .push(las_point);
             }
 
-            let mut guard = max_cartesian_mutex
+            bounds_mutex
                 .lock()
-                .unwrap_or_else(|e| e.into_inner());
-            let current_max_cartesian = (*guard).max(local_max_cartesian);
-            *guard = current_max_cartesian;
+                .unwrap_or_else(|e| e.into_inner())
+                .merge(&local_bounds);
 
             Ok(())
         })
@@ -184,14 +173,12 @@ pub fn convert_pointclouds(
     let path = create_path(output_path.join("las").join(format!("{}{}", 0, ".las")))
         .context("Unable to create path: ")?;
 
-    let max_cartesian = *max_cartesian_mutex
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let bounds = *bounds_mutex.lock().unwrap_or_else(|e| e.into_inner());
 
     let mut writer = get_las_writer(
         Some(guid.to_owned()),
         path,
-        max_cartesian,
+        bounds,
         has_color.load(Ordering::Relaxed),
         las_version,
     )
