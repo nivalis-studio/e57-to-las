@@ -74,8 +74,12 @@ pub fn convert_file(
 
         save_stations(output_path, &pointclouds)?;
     } else {
-        convert_pointclouds(e57_reader, Path::new(&output_path), &las_version)
-            .context("Error during the parallel processing of pointclouds")?;
+        convert_pointclouds(
+            Path::new(&input_path),
+            Path::new(&output_path),
+            &las_version,
+        )
+        .context("Error during the parallel processing of pointclouds")?;
     }
     Ok(())
 }
