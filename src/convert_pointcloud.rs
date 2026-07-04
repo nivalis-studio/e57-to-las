@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use crate::get_las_writer::get_las_writer;
-use crate::{LasVersion, convert_point::convert_point, utils::create_path};
+use crate::{LasVersion, convert_point::convert_point, utils::ensure_parent_dir};
 
 use anyhow::{Context, Result};
 use e57::{E57Reader, PointCloud};
@@ -76,11 +76,11 @@ pub fn convert_pointcloud(
         las_points.push(las_point);
     }
 
-    let path = create_path(output_path.join("las").join(format!("{}{}", index, ".las")))
+    let path = ensure_parent_dir(output_path.join("las").join(format!("{index}.las")))
         .context("Unable to create path: ")?;
 
     let mut writer = get_las_writer(
-        pointcloud.clone().guid,
+        pointcloud.guid.clone(),
         path,
         max_cartesian,
         has_color,
@@ -106,21 +106,9 @@ pub fn convert_pointcloud(
 /// - `e57_reader`: A E57Reader from a file.
 /// - `output_path`: A reference to the output dir.
 ///
-/// # Example
-/// ```ignore
-/// use std::path::Path;
-/// use e57_to_las::{convert_pointclouds, LasVersion};
-/// use anyhow::Context;
-///
-/// # fn example() -> anyhow::Result<()> {
-/// let input_path = Path::new("path/to/input.e57");
-/// let e57_reader = e57::E57Reader::from_file(input_path).context("Failed to open e57 file")?;
-/// let output_path = Path::new("path/to/output");
-/// let las_version = LasVersion::new(1, 4)?;
-/// convert_pointclouds(e57_reader, output_path, &las_version)?;
-/// # Ok(())
-/// # }
-/// ```
+/// This function is internal to the crate (it is not re-exported from the
+/// library root); use [`convert_file`](crate::convert_file) with
+/// `as_stations = false` to get the same behavior through the public API.
 pub fn convert_pointclouds(
     e57_reader: E57Reader<BufReader<File>>,
     output_path: &Path,
@@ -139,7 +127,7 @@ pub fn convert_pointclouds(
         .par_iter()
         .enumerate()
         .try_for_each(|(index, pointcloud)| -> Result<()> {
-            println!("Saving pointclouds {index}...");
+            println!("Saving pointcloud {index}...");
 
             let mut reader = e57_reader_mutex.lock().unwrap_or_else(|e| e.into_inner());
             let pointcloud_reader = reader
@@ -181,7 +169,7 @@ pub fn convert_pointclouds(
         })
         .context("Error while converting pointcloud")?;
 
-    let path = create_path(output_path.join("las").join(format!("{}{}", 0, ".las")))
+    let path = ensure_parent_dir(output_path.join("las").join("0.las"))
         .context("Unable to create path: ")?;
 
     let max_cartesian = *max_cartesian_mutex

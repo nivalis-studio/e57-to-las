@@ -1,4 +1,3 @@
-extern crate rayon;
 use rayon::prelude::*;
 use std::path::Path;
 
@@ -6,8 +5,8 @@ use anyhow::{Context, Result};
 
 use crate::convert_pointcloud::{convert_pointcloud, convert_pointclouds};
 
-use crate::stations::save_stations;
 use crate::LasVersion;
+use crate::stations::save_stations;
 
 /// Converts a given e57 file into LAS format and, optionally, as stations.
 ///
@@ -58,7 +57,7 @@ pub fn convert_file(
             .par_iter()
             .enumerate()
             .try_for_each(|(index, pointcloud)| -> Result<()> {
-                println!("Saving pointcloud {}...", index);
+                println!("Saving pointcloud {index}...");
 
                 convert_pointcloud(
                     index,
