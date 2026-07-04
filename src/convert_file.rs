@@ -154,7 +154,15 @@ mod tests {
             );
         }
 
-        let output_path = String::from("examples");
+        // Write outside the repo and away from the other test's output so the
+        // two conversions in this test only race each other (which is fine —
+        // proving repeated calls work is the point of this test).
+        let output_dir =
+            std::env::temp_dir().join(format!("e57_to_las_twice_{}", std::process::id()));
+        let output_path = output_dir
+            .to_str()
+            .expect("Temp dir path is not valid UTF-8")
+            .to_string();
         let number_of_threads = 4;
         let as_stations = true;
         let las_version = LasVersion::new(1, 3).expect("Failed to create LAS version");
@@ -177,5 +185,7 @@ mod tests {
             las_version,
         );
         assert!(second.is_ok(), "second conversion failed: {:?}", second);
+
+        let _ = std::fs::remove_dir_all(&output_dir);
     }
 }
