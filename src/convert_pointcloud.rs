@@ -54,6 +54,7 @@ pub fn convert_pointcloud(
 
     let mut las_points: Vec<las::Point> = Vec::new();
     let mut has_color = false;
+    let mut skipped_points: usize = 0;
 
     for p in pointcloud_reader {
         let point = p.context("Could not read point: ")?;
@@ -64,7 +65,10 @@ pub fn convert_pointcloud(
 
         let las_point = match convert_point(point) {
             Some(p) => p,
-            None => continue,
+            None => {
+                skipped_points += 1;
+                continue;
+            }
         };
 
         let abs_extent = las_point
@@ -74,6 +78,10 @@ pub fn convert_pointcloud(
             .max(las_point.z.abs());
         max_cartesian = max_cartesian.max(abs_extent);
         las_points.push(las_point);
+    }
+
+    if skipped_points > 0 {
+        println!("Pointcloud {index}: skipped {skipped_points} points with invalid coordinates");
     }
 
     let path = create_path(output_path.join("las").join(format!("{}{}", index, ".las")))
@@ -157,6 +165,7 @@ pub fn convert_pointclouds(
                 .context("Unable to get point cloud iterator: ")?;
 
             let mut local_max_cartesian: f64 = 0.0;
+            let mut skipped_points: usize = 0;
             for p in pointcloud_reader {
                 let point = p.context("Could not read point: ")?;
 
@@ -166,7 +175,10 @@ pub fn convert_pointclouds(
 
                 let las_point = match convert_point(point) {
                     Some(p) => p,
-                    None => continue,
+                    None => {
+                        skipped_points += 1;
+                        continue;
+                    }
                 };
 
                 let abs_extent = las_point
@@ -179,6 +191,12 @@ pub fn convert_pointclouds(
                     .lock()
                     .unwrap_or_else(|e| e.into_inner())
                     .push(las_point);
+            }
+
+            if skipped_points > 0 {
+                println!(
+                    "Pointcloud {index}: skipped {skipped_points} points with invalid coordinates"
+                );
             }
 
             let mut guard = max_cartesian_mutex
