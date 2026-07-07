@@ -1,5 +1,3 @@
-extern crate rayon;
-
 use crate::spatial_point::SpatialPoint;
 use anyhow::Result;
 use e57::PointCloud;

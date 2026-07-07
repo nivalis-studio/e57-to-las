@@ -1,4 +1,3 @@
-extern crate rayon;
 use rayon::prelude::*;
 use std::path::Path;
 
@@ -60,7 +59,7 @@ pub fn convert_file(
                 .par_iter()
                 .enumerate()
                 .try_for_each(|(index, pointcloud)| -> Result<()> {
-                    println!("Saving pointcloud {}...", index);
+                    println!("Saving pointcloud {index}...");
 
                     convert_pointcloud(
                         index,
@@ -77,8 +76,12 @@ pub fn convert_file(
 
             save_stations(output_path, &pointclouds)?;
         } else {
-            convert_pointclouds(e57_reader, Path::new(&output_path), &las_version)
-                .context("Error during the parallel processing of pointclouds")?;
+            convert_pointclouds(
+                Path::new(&input_path),
+                Path::new(&output_path),
+                &las_version,
+            )
+            .context("Error during the parallel processing of pointclouds")?;
         }
         Ok(())
     })
@@ -117,7 +120,12 @@ mod tests {
                 );
             }
 
-            let output_path = String::from("examples");
+            let output_dir = tempfile::tempdir().expect("Failed to create temp output dir");
+            let output_path = output_dir
+                .path()
+                .to_str()
+                .expect("Temp dir path is not valid UTF-8")
+                .to_string();
             let number_of_threads = 4;
             let as_stations = true;
             let las_version = LasVersion::new(1, 3).expect("Failed to create LAS version");
@@ -130,6 +138,22 @@ mod tests {
             );
 
             assert!(result.is_ok());
+
+            let stations_path = output_dir.path().join("stations.json");
+            assert!(
+                stations_path.is_file(),
+                "Expected stations.json to be created in the output dir"
+            );
+
+            let las_dir = output_dir.path().join("las");
+            let has_las_file = std::fs::read_dir(&las_dir)
+                .expect("Expected las directory to be created in the output dir")
+                .filter_map(|entry| entry.ok())
+                .any(|entry| entry.path().extension().is_some_and(|ext| ext == "las"));
+            assert!(
+                has_las_file,
+                "Expected at least one .las file in the las output dir"
+            );
         });
     }
 

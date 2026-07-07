@@ -1,6 +1,8 @@
 use crate::{Error, Result};
 
 const ALLOWED_VERSIONS: [(u8, u8); 5] = [(1, 0), (1, 1), (1, 2), (1, 3), (1, 4)];
+const MIN_VERSION: (u8, u8) = ALLOWED_VERSIONS[0];
+const MAX_VERSION: (u8, u8) = ALLOWED_VERSIONS[ALLOWED_VERSIONS.len() - 1];
 
 pub struct LasVersion {
     major: u8,
@@ -12,8 +14,8 @@ impl LasVersion {
         if !ALLOWED_VERSIONS.contains(&(major, minor)) {
             return Err(Error::InvalidLasVersion(format!(
                 "must be between {} and {}",
-                format_version(ALLOWED_VERSIONS[0]),
-                format_version(ALLOWED_VERSIONS[4]),
+                format_version(MIN_VERSION),
+                format_version(MAX_VERSION),
             )));
         }
 
