@@ -54,6 +54,7 @@ pub fn convert_pointcloud(
 
     let mut las_points: Vec<las::Point> = Vec::new();
     let mut has_color = false;
+    let mut skipped_points: usize = 0;
 
     for p in pointcloud_reader {
         let point = p.context("Could not read point: ")?;
@@ -64,11 +65,18 @@ pub fn convert_pointcloud(
 
         let las_point = match convert_point(point) {
             Some(p) => p,
-            None => continue,
+            None => {
+                skipped_points += 1;
+                continue;
+            }
         };
 
         bounds.update(&las_point);
         las_points.push(las_point);
+    }
+
+    if skipped_points > 0 {
+        println!("Pointcloud {index}: skipped {skipped_points} points with invalid coordinates");
     }
 
     let path = create_path(output_path.join("las").join(format!("{}{}", index, ".las")))
@@ -83,13 +91,23 @@ pub fn convert_pointcloud(
     )
     .context("Unable to create writer: ")?;
 
-    for p in las_points {
+    for mut p in las_points {
+        backfill_color(&mut p, has_color);
         writer.write_point(p).context("Unable to write: ")?;
     }
 
     writer.close().context("Failed to close the writer: ")?;
 
     Ok(())
+}
+
+/// Backfills a default (black) color on points missing one when the LAS point
+/// format includes color, since `las` rejects points whose color presence does
+/// not match the point format.
+fn backfill_color(point: &mut las::Point, has_color: bool) {
+    if has_color && point.color.is_none() {
+        point.color = Some(las::Color::default());
+    }
 }
 
 /// Converts the pointclouds of an E57Reader to a single LAS file.
@@ -142,6 +160,7 @@ pub fn convert_pointclouds(
                 .context("Unable to get point cloud iterator: ")?;
 
             let mut local_bounds = PointBounds::default();
+            let mut skipped_points: usize = 0;
             for p in pointcloud_reader {
                 let point = p.context("Could not read point: ")?;
 
@@ -151,7 +170,10 @@ pub fn convert_pointclouds(
 
                 let las_point = match convert_point(point) {
                     Some(p) => p,
-                    None => continue,
+                    None => {
+                        skipped_points += 1;
+                        continue;
+                    }
                 };
 
                 local_bounds.update(&las_point);
@@ -159,6 +181,12 @@ pub fn convert_pointclouds(
                     .lock()
                     .unwrap_or_else(|e| e.into_inner())
                     .push(las_point);
+            }
+
+            if skipped_points > 0 {
+                println!(
+                    "Pointcloud {index}: skipped {skipped_points} points with invalid coordinates"
+                );
             }
 
             bounds_mutex
@@ -189,10 +217,50 @@ pub fn convert_pointclouds(
         .unwrap_or_else(|e| e.into_inner())
         .clone();
 
-    for p in las_points {
+    let has_color = has_color.load(Ordering::Relaxed);
+
+    for mut p in las_points {
+        backfill_color(&mut p, has_color);
         writer.write_point(p).context("Unable to write: ")?;
     }
 
     writer.close().context("Failed to close the writer: ")?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::backfill_color;
+
+    #[test]
+    fn test_backfill_color_adds_default_when_format_has_color() {
+        let mut point = las::Point::default();
+        assert!(point.color.is_none());
+
+        backfill_color(&mut point, true);
+
+        assert_eq!(point.color, Some(las::Color::default()));
+    }
+
+    #[test]
+    fn test_backfill_color_preserves_existing_color() {
+        let existing = las::Color::new(1, 2, 3);
+        let mut point = las::Point {
+            color: Some(existing),
+            ..Default::default()
+        };
+
+        backfill_color(&mut point, true);
+
+        assert_eq!(point.color, Some(existing));
+    }
+
+    #[test]
+    fn test_backfill_color_noop_when_format_has_no_color() {
+        let mut point = las::Point::default();
+
+        backfill_color(&mut point, false);
+
+        assert!(point.color.is_none());
+    }
 }

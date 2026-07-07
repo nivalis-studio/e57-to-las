@@ -126,8 +126,16 @@ pub(crate) fn get_las_writer(
             z: axis_transform(bounds.min.z, bounds.max.z),
         }
     };
-    builder.guid = Uuid::parse_str(&guid.unwrap_or(Uuid::new_v4().to_string()).replace("_", "-"))
-        .unwrap_or(Uuid::new_v4());
+    builder.guid = match guid {
+        Some(guid) => Uuid::parse_str(&guid.replace("_", "-")).unwrap_or_else(|_| {
+            let fallback = Uuid::new_v4();
+            eprintln!(
+                "Warning: could not parse E57 guid {guid:?} as a UUID, using random guid {fallback} instead"
+            );
+            fallback
+        }),
+        None => Uuid::new_v4(),
+    };
 
     let header = builder.into_header().context("Error encountered: ")?;
 
