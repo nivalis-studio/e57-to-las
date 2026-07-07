@@ -4,7 +4,7 @@ use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
-use crate::get_las_writer::get_las_writer;
+use crate::get_las_writer::{PointBounds, get_las_writer};
 use crate::{LasVersion, convert_point::convert_point, utils::ensure_parent_dir};
 
 use anyhow::{Context, Result};
@@ -50,10 +50,11 @@ pub fn convert_pointcloud(
         .pointcloud_simple(pointcloud)
         .context("Unable to get point cloud iterator: ")?;
 
-    let mut max_cartesian: f64 = 0.0;
+    let mut bounds = PointBounds::default();
 
     let mut las_points: Vec<las::Point> = Vec::new();
     let mut has_color = false;
+    let mut skipped_points: usize = 0;
 
     for p in pointcloud_reader {
         let point = p.context("Could not read point: ")?;
@@ -64,16 +65,18 @@ pub fn convert_pointcloud(
 
         let las_point = match convert_point(point) {
             Some(p) => p,
-            None => continue,
+            None => {
+                skipped_points += 1;
+                continue;
+            }
         };
 
-        let abs_extent = las_point
-            .x
-            .abs()
-            .max(las_point.y.abs())
-            .max(las_point.z.abs());
-        max_cartesian = max_cartesian.max(abs_extent);
+        bounds.update(&las_point);
         las_points.push(las_point);
+    }
+
+    if skipped_points > 0 {
+        println!("Pointcloud {index}: skipped {skipped_points} points with invalid coordinates");
     }
 
     let path = ensure_parent_dir(output_path.join("las").join(format!("{index}.las")))
@@ -82,19 +85,29 @@ pub fn convert_pointcloud(
     let mut writer = get_las_writer(
         pointcloud.guid.clone(),
         path,
-        max_cartesian,
+        bounds,
         has_color,
         las_version,
     )
     .context("Unable to create writer: ")?;
 
-    for p in las_points {
+    for mut p in las_points {
+        backfill_color(&mut p, has_color);
         writer.write_point(p).context("Unable to write: ")?;
     }
 
     writer.close().context("Failed to close the writer: ")?;
 
     Ok(())
+}
+
+/// Backfills a default (black) color on points missing one when the LAS point
+/// format includes color, since `las` rejects points whose color presence does
+/// not match the point format.
+fn backfill_color(point: &mut las::Point, has_color: bool) {
+    if has_color && point.color.is_none() {
+        point.color = Some(las::Color::default());
+    }
 }
 
 /// Converts the pointclouds of an E57Reader to a single LAS file.
@@ -118,7 +131,7 @@ pub fn convert_pointclouds(
     let guid = &e57_reader.guid().to_owned();
     let e57_reader_mutex = Mutex::new(e57_reader);
 
-    let max_cartesian_mutex = Mutex::new(0.0_f64);
+    let bounds_mutex = Mutex::new(PointBounds::default());
     let las_points: Vec<las::Point> = Vec::new();
     let las_points_mutex = Mutex::new(las_points);
     let has_color = Arc::new(AtomicBool::new(false));
@@ -134,7 +147,8 @@ pub fn convert_pointclouds(
                 .pointcloud_simple(pointcloud)
                 .context("Unable to get point cloud iterator: ")?;
 
-            let mut local_max_cartesian: f64 = 0.0;
+            let mut local_bounds = PointBounds::default();
+            let mut skipped_points: usize = 0;
             for p in pointcloud_reader {
                 let point = p.context("Could not read point: ")?;
 
@@ -144,26 +158,29 @@ pub fn convert_pointclouds(
 
                 let las_point = match convert_point(point) {
                     Some(p) => p,
-                    None => continue,
+                    None => {
+                        skipped_points += 1;
+                        continue;
+                    }
                 };
 
-                let abs_extent = las_point
-                    .x
-                    .abs()
-                    .max(las_point.y.abs())
-                    .max(las_point.z.abs());
-                local_max_cartesian = local_max_cartesian.max(abs_extent);
+                local_bounds.update(&las_point);
                 las_points_mutex
                     .lock()
                     .unwrap_or_else(|e| e.into_inner())
                     .push(las_point);
             }
 
-            let mut guard = max_cartesian_mutex
+            if skipped_points > 0 {
+                println!(
+                    "Pointcloud {index}: skipped {skipped_points} points with invalid coordinates"
+                );
+            }
+
+            bounds_mutex
                 .lock()
-                .unwrap_or_else(|e| e.into_inner());
-            let current_max_cartesian = (*guard).max(local_max_cartesian);
-            *guard = current_max_cartesian;
+                .unwrap_or_else(|e| e.into_inner())
+                .merge(&local_bounds);
 
             Ok(())
         })
@@ -172,14 +189,12 @@ pub fn convert_pointclouds(
     let path = ensure_parent_dir(output_path.join("las").join("0.las"))
         .context("Unable to create path: ")?;
 
-    let max_cartesian = *max_cartesian_mutex
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let bounds = *bounds_mutex.lock().unwrap_or_else(|e| e.into_inner());
 
     let mut writer = get_las_writer(
         Some(guid.to_owned()),
         path,
-        max_cartesian,
+        bounds,
         has_color.load(Ordering::Relaxed),
         las_version,
     )
@@ -190,10 +205,50 @@ pub fn convert_pointclouds(
         .unwrap_or_else(|e| e.into_inner())
         .clone();
 
-    for p in las_points {
+    let has_color = has_color.load(Ordering::Relaxed);
+
+    for mut p in las_points {
+        backfill_color(&mut p, has_color);
         writer.write_point(p).context("Unable to write: ")?;
     }
 
     writer.close().context("Failed to close the writer: ")?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::backfill_color;
+
+    #[test]
+    fn test_backfill_color_adds_default_when_format_has_color() {
+        let mut point = las::Point::default();
+        assert!(point.color.is_none());
+
+        backfill_color(&mut point, true);
+
+        assert_eq!(point.color, Some(las::Color::default()));
+    }
+
+    #[test]
+    fn test_backfill_color_preserves_existing_color() {
+        let existing = las::Color::new(1, 2, 3);
+        let mut point = las::Point {
+            color: Some(existing),
+            ..Default::default()
+        };
+
+        backfill_color(&mut point, true);
+
+        assert_eq!(point.color, Some(existing));
+    }
+
+    #[test]
+    fn test_backfill_color_noop_when_format_has_no_color() {
+        let mut point = las::Point::default();
+
+        backfill_color(&mut point, false);
+
+        assert!(point.color.is_none());
+    }
 }

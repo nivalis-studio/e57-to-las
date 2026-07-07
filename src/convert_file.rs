@@ -112,7 +112,12 @@ mod tests {
                 );
             }
 
-            let output_path = String::from("examples");
+            let output_dir = tempfile::tempdir().expect("Failed to create temp output dir");
+            let output_path = output_dir
+                .path()
+                .to_str()
+                .expect("Temp dir path is not valid UTF-8")
+                .to_string();
             let number_of_threads = 4;
             let as_stations = true;
             let las_version = LasVersion::new(1, 3).expect("Failed to create LAS version");
@@ -125,6 +130,22 @@ mod tests {
             );
 
             assert!(result.is_ok());
+
+            let stations_path = output_dir.path().join("stations.json");
+            assert!(
+                stations_path.is_file(),
+                "Expected stations.json to be created in the output dir"
+            );
+
+            let las_dir = output_dir.path().join("las");
+            let has_las_file = std::fs::read_dir(&las_dir)
+                .expect("Expected las directory to be created in the output dir")
+                .filter_map(|entry| entry.ok())
+                .any(|entry| entry.path().extension().is_some_and(|ext| ext == "las"));
+            assert!(
+                has_las_file,
+                "Expected at least one .las file in the las output dir"
+            );
         });
     }
 }
