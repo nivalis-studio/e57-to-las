@@ -15,9 +15,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          lfs: true
-      - name: Build
-        run: cargo build --verbose
+      - name: Fetch test fixture
+        run: git lfs pull --include "examples/bunnyDouble.e57"
+      - uses: Swatinem/rust-cache@v2
+      - name: Check formatting
+        run: cargo fmt --check
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
       - name: Run tests
         run: cargo test --verbose
