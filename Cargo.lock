@@ -199,9 +199,9 @@ checksum = "d0a5c400df2834b80a4c3327b3aad3a4c4cd4de0629063962b03235697506a28"
 
 [[package]]
 name = "e57"
-version = "0.11.12"
+version = "0.11.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "463e55cebbc2333516a69f0b2980a7da2ad94f4306f51d02e6d3b3a213202c96"
+checksum = "fcfee41a50fbd70278c70cc477b8671ffe03951cba028cc2c057777a9ee6a3cc"
 dependencies = [
  "roxmltree",
 ]
@@ -362,9 +362,9 @@ dependencies = [
 
 [[package]]
 name = "las"
-version = "0.9.11"
+version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "48c2594be0d2ec4f04c944f5cb5160625cd1a69451db14de73b990065f97fb84"
+checksum = "a8823fdc8209bf345e7ec7586f2e1f5ad0f978899ebb9e637c6d54e0f26cba0b"
 dependencies = [
  "byteorder",
  "chrono",

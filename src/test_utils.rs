@@ -95,9 +95,11 @@ pub(crate) fn read_las(path: &Path) -> (las::Header, Vec<las::Point>) {
     let mut reader = las::Reader::from_path(path)
         .unwrap_or_else(|e| panic!("Failed to open LAS file {}: {e}", path.display()));
     let header = reader.header().clone();
-    let mut points = Vec::new();
-    reader
-        .read_all_points_into(&mut points)
-        .expect("Failed to read LAS points");
+    let points = reader
+        .read_all()
+        .expect("Failed to read LAS points")
+        .points()
+        .collect::<las::Result<Vec<_>>>()
+        .expect("Failed to decode LAS points");
     (header, points)
 }
