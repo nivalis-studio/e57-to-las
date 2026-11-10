@@ -21,6 +21,17 @@ impl LasVersion {
 
         Ok(LasVersion { major, minor })
     }
+
+    /// Point formats with color (2, 3, 5, 7, 8) only exist from LAS 1.2.
+    pub(crate) fn supports_color(&self) -> bool {
+        (self.major, self.minor) >= (1, 2)
+    }
+}
+
+impl std::fmt::Display for LasVersion {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}.{}", self.major, self.minor)
+    }
 }
 
 impl TryFrom<&str> for LasVersion {
@@ -60,6 +71,7 @@ fn format_version((major, minor): (u8, u8)) -> String {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod test {
     use crate::las_version;
 
@@ -82,5 +94,14 @@ mod test {
         let las_version = las_version::LasVersion::try_from("2.c");
 
         assert!(las_version.is_err())
+    }
+
+    #[test]
+    fn test_supports_color_and_display() {
+        for (minor, expected) in [(0, false), (1, false), (2, true), (3, true), (4, true)] {
+            let version = las_version::LasVersion::new(1, minor).expect("valid version");
+            assert_eq!(version.supports_color(), expected, "LAS 1.{minor}");
+            assert_eq!(version.to_string(), format!("1.{minor}"));
+        }
     }
 }
