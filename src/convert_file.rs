@@ -236,6 +236,60 @@ mod tests {
         }
     }
 
+    /// A point on the 0.001 LAS grid with its color, for order-insensitive comparison.
+    type PointKey = (i64, i64, i64, Option<(u16, u16, u16)>);
+
+    fn point_key(x: f64, y: f64, z: f64, color: Option<las::Color>) -> PointKey {
+        let mm = |v: f64| (v * 1000.0).round() as i64;
+        (mm(x), mm(y), mm(z), color.map(|c| (c.red, c.green, c.blue)))
+    }
+
+    /// The points of a LAS file as a sorted multiset of keys.
+    fn sorted_keys(points: &[las::Point]) -> Vec<PointKey> {
+        let mut keys: Vec<_> = points
+            .iter()
+            .map(|p| point_key(p.x, p.y, p.z, p.color))
+            .collect();
+        keys.sort_unstable();
+        keys
+    }
+
+    /// The sorted multiset of keys a merged conversion of colored `clouds` must
+    /// produce: pose applied, colorless points backfilled black.
+    fn expected_merged_keys(clouds: &[SyntheticCloud]) -> Vec<PointKey> {
+        let mut keys: Vec<_> = clouds
+            .iter()
+            .flat_map(|cloud| {
+                expected_xyz(cloud)
+                    .into_iter()
+                    .zip(&cloud.points)
+                    .map(|((x, y, z), p)| point_key(x, y, z, Some(expected_color(p.3))))
+            })
+            .collect();
+        keys.sort_unstable();
+        keys
+    }
+
+    /// Three clouds of `n` distinct points each (colored, colorless, colored),
+    /// with values exactly representable at the 0.001 LAS scale.
+    fn generated_clouds(n: usize) -> Vec<SyntheticCloud> {
+        (0..3)
+            .map(|c| SyntheticCloud {
+                points: (0..n)
+                    .map(|i| {
+                        let color = (c != 1).then_some((
+                            if i % 2 == 0 { 0 } else { 255 },
+                            if i % 3 == 0 { 0 } else { 255 },
+                            255,
+                        ));
+                        (i as f64 * 0.25, c as f64, (i % 7) as f64 * 0.5, color)
+                    })
+                    .collect(),
+                translation: (c == 2).then_some((100.0, -50.0, 2.5)),
+            })
+            .collect()
+    }
+
     /// Writes `clouds` to `<dir>/input.e57` and converts it into `dir`.
     fn convert_synthetic(
         dir: &Path,
@@ -243,15 +297,51 @@ mod tests {
         as_stations: bool,
         las_version: LasVersion,
     ) -> Result<()> {
+        convert_synthetic_with_threads(dir, clouds, as_stations, las_version, 2)
+    }
+
+    fn convert_synthetic_with_threads(
+        dir: &Path,
+        clouds: &[SyntheticCloud],
+        as_stations: bool,
+        las_version: LasVersion,
+        number_of_threads: usize,
+    ) -> Result<()> {
         let input = dir.join("input.e57");
         write_synthetic_e57(&input, clouds);
         convert_file(
             input.to_str().expect("non UTF-8 path").to_string(),
             dir.to_str().expect("non UTF-8 path").to_string(),
-            2,
+            number_of_threads,
             as_stations,
             las_version,
         )
+    }
+
+    /// Converts `clouds` in merged mode and checks the point count and multiset.
+    fn assert_merged_multiset(clouds: &[SyntheticCloud], number_of_threads: usize) {
+        let dir = tempfile::tempdir().expect("Failed to create temp dir");
+        let version = LasVersion::new(1, 4).expect("valid version");
+        convert_synthetic_with_threads(dir.path(), clouds, false, version, number_of_threads)
+            .expect("conversion failed");
+
+        let (header, points) = read_las(&dir.path().join("las").join("0.las"));
+        let total: usize = clouds.iter().map(|c| c.points.len()).sum();
+        assert_eq!(header.number_of_points(), total as u64);
+        assert_eq!(points.len(), total);
+        assert_eq!(sorted_keys(&points), expected_merged_keys(clouds));
+    }
+
+    #[test]
+    fn test_merged_mode_single_thread_does_not_deadlock() {
+        // Several batches per cloud, on a pool with a single thread.
+        assert_merged_multiset(&generated_clouds(10_000), 1);
+    }
+
+    #[test]
+    fn test_merged_mode_more_points_than_the_queue_holds() {
+        // 150,000 points: well over CHANNEL_CAPACITY × BATCH_SIZE (65,536).
+        assert_merged_multiset(&generated_clouds(50_000), 2);
     }
 
     #[test]
@@ -269,18 +359,9 @@ mod tests {
         assert_eq!(points.len(), total);
         assert_eq!(header.number_of_points(), total as u64);
 
-        // Points appear in cloud order, with the pose applied.
-        let expected: Vec<_> = clouds.iter().flat_map(expected_xyz).collect();
-        assert_xyz(&points, &expected);
-
-        // Colored points keep their color; the colorless cloud is backfilled black.
-        let expected_colors: Vec<_> = clouds
-            .iter()
-            .flat_map(|c| c.points.iter().map(|p| Some(expected_color(p.3))))
-            .collect();
-        let colors: Vec<_> = points.iter().map(|p| p.color).collect();
-        assert_eq!(colors, expected_colors);
-        assert_eq!(points[3].color, Some(las::Color::default()));
+        // Every point appears once with the pose applied (in any order); colored
+        // points keep their color and the colorless cloud is backfilled black.
+        assert_eq!(sorted_keys(&points), expected_merged_keys(&clouds));
 
         let bounds = header.bounds();
         for p in &points {
