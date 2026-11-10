@@ -3,7 +3,7 @@ use std::path::Path;
 
 use anyhow::{Context, Result};
 
-use crate::convert_pointcloud::{convert_pointcloud, convert_pointclouds};
+use crate::convert_pointcloud::{check_color_support, convert_pointcloud, convert_pointclouds};
 
 use crate::LasVersion;
 use crate::stations::save_stations;
@@ -52,6 +52,7 @@ pub fn convert_file(
         }
 
         let pointclouds = e57_reader.pointclouds();
+        check_color_support(&pointclouds, &las_version)?;
 
         if as_stations {
             pointclouds
@@ -381,6 +382,39 @@ mod tests {
             let v = header.version();
             assert_eq!((v.major, v.minor), (1, minor));
             assert_xyz(&points, &expected_xyz(&clouds[0]));
+        }
+    }
+
+    #[test]
+    fn test_colored_input_rejected_for_las_without_color() {
+        for as_stations in [false, true] {
+            for minor in [0, 1] {
+                let dir = tempfile::tempdir().expect("Failed to create temp dir");
+                let version = LasVersion::new(1, minor).expect("valid version");
+                let err = convert_synthetic(dir.path(), &mixed_clouds(), as_stations, version)
+                    .expect_err("conversion should fail for colored input");
+
+                let message = format!("{err:#}");
+                assert!(
+                    message.contains(&format!("LAS 1.{minor} cannot store point colors")),
+                    "stations={as_stations}, 1.{minor}: unexpected error: {message}"
+                );
+                assert!(
+                    !dir.path().join("las").exists(),
+                    "stations={as_stations}, 1.{minor}: no LAS output should be written"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_colored_input_converts_with_las_1_2() {
+        for as_stations in [false, true] {
+            let dir = tempfile::tempdir().expect("Failed to create temp dir");
+            let version = LasVersion::new(1, 2).expect("valid version");
+            convert_synthetic(dir.path(), &mixed_clouds(), as_stations, version)
+                .unwrap_or_else(|e| panic!("stations={as_stations}: conversion failed: {e:?}"));
+            assert!(dir.path().join("las").join("0.las").is_file());
         }
     }
 }

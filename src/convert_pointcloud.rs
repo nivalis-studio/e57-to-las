@@ -61,6 +61,20 @@ fn read_pointcloud(input_path: &Path, pointcloud: &PointCloud) -> Result<CloudPo
     })
 }
 
+/// Fails if `las_version` cannot store point colors but any cloud declares color,
+/// so the conversion stops before reading any point.
+pub(crate) fn check_color_support(
+    pointclouds: &[PointCloud],
+    las_version: &LasVersion,
+) -> Result<()> {
+    if !las_version.supports_color() && pointclouds.iter().any(PointCloud::has_color) {
+        return Err(anyhow::anyhow!(
+            "LAS {las_version} cannot store point colors, but the input contains colored point clouds. Use LAS version 1.2 or newer."
+        ));
+    }
+    Ok(())
+}
+
 /// Converts a point cloud to a LAS file.
 ///
 /// This function takes the points from the point cloud, converts them to LAS points using the
@@ -95,6 +109,8 @@ pub fn convert_pointcloud(
     output_path: &Path,
     las_version: &LasVersion,
 ) -> Result<()> {
+    check_color_support(std::slice::from_ref(pointcloud), las_version)?;
+
     let cloud = read_pointcloud(input_path, pointcloud)?;
 
     if cloud.skipped_points > 0 {
