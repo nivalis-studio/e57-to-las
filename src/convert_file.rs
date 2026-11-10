@@ -17,9 +17,8 @@ use crate::stations::save_stations;
 /// - `input_path`: The path to the e57 file that needs to be converted.
 /// - `output_path`: The destination (output dir) where the files will be saved.
 /// - `number_of_threads`: The number of threads to be used for parallel processing.
-/// - `as_stations`: Whether to convert e57 file in distinct stations
-/// - `las_version`: Version of LAS format used for output file. Latest one is (1, 4). Currently possible: (1, 3) and (1, 4).
-/// or in single LAS file
+/// - `as_stations`: Whether to write one LAS file per point cloud (stations) instead of a single merged LAS file.
+/// - `las_version`: Version of LAS format used for output file. Supported: (1, 0) to (1, 4).
 ///
 /// # Example
 /// ```
