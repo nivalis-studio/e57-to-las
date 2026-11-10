@@ -10,31 +10,55 @@ A utility to convert E57 point cloud files to LAS format. It is based on the [E5
 
 ## About
 
-`e57-to-las` is an open-source tool designed to convert point cloud files in the E57 format to the LAS format. The conversion retains all the relevant point data and associated metadata, making it easier for users to work with point cloud data in environments that primarily support LAS. We use is to convert E57 files to LAS for use in [Potree](https://github.com/potree/potree/) for web-based point cloud visualization.
+`e57-to-las` is an open-source tool designed to convert point cloud files in the E57 format to the LAS format. The conversion retains all the relevant point data and associated metadata, making it easier for users to work with point cloud data in environments that primarily support LAS. We use it to convert E57 files to LAS for use in [Potree](https://github.com/potree/potree/) for web-based point cloud visualization.
 
 ## Features
 
 - [x] Parallel processing using `rayon` for faster conversion.
-- [x] Error handling to ensure corrupted or unsupported files do not halt the process.
+- [x] Errors are reported with context and stop the conversion. Points with invalid coordinates are skipped, and the number skipped per point cloud is printed.
 - [x] Optional pointclouds splitting in distinct LAS files and generation of station file (`stations.json`), containing spatial coordinates of station points. This is activated by adding the `--stations` flag, and the station points are calculated based on the transformation translations of the point clouds.
 
 ## Usage
 
+Install the command-line tool with `cargo install e57-to-las`, then run:
+
 ```bash
-e57_to_las [OPTIONS]
+e57-to-las [OPTIONS] --path <PATH>
 ```
 
-To use this as a crate in your own project, add the following to your `Cargo.toml`:
+For example:
 
-```toml
-[dependencies]
-e57-to-las = "0.8.0"
+```bash
+e57-to-las --path scan.e57 --output out/ --stations --las-version 1.2
+```
+
+### Options
+
+- `-p, --path <PATH>`: The path to the input E57 file.
+- `-o, --output <OUTPUT>`: The output directory for the converted LAS files (default: `./`).
+- `-T, --threads <THREADS>`: Number of threads for parallel processing (default: 0 = max possible).
+- `-S, --stations`: Write each point cloud (station) to its own LAS file and generate `stations.json`. Off by default.
+- `-L, --las-version <LAS_VERSION>`: Version of LAS format used for the output files, from `1.0` to `1.4` (default: `1.4`).
+- `-h, --help`: Print help.
+- `-V, --version`: Print version.
+
+### Output
+
+- Without `--stations`, all point clouds are merged into `<output>/las/0.las`.
+- With `--stations`, each point cloud is written to `<output>/las/<index>.las`, and `<output>/stations.json` maps each index to the `x`/`y`/`z` translation of that scan.
+
+### Library
+
+To use this as a crate in your own project, add it to your `Cargo.toml`:
+
+```bash
+cargo add e57-to-las
 ```
 
 You can then use it in your code as follows:
 
 ```rust
-use e57_to_las::{e57_to_las, LasVersion};
+use e57_to_las::{convert_file, LasVersion};
 
 fn main() {
     let input_path = String::from("path/to/input.e57");
@@ -42,17 +66,10 @@ fn main() {
     let number_of_threads = 0; // 0 = max possible
     let as_stations = true;
     let las_version = LasVersion::new(1, 4).expect("Failed to create LAS version"); // 1.0 to 1.4
-    convert_file(input_path, output_path, number_of_threads, as_stations, las_version);
+    convert_file(input_path, output_path, number_of_threads, as_stations, las_version)
+        .expect("conversion failed");
 }
 ```
-
-### Options
-
-- `-p, --path <path>`: The path to the input E57 file.
-- `-o, --output <output>`: The output directory for the converted LAS files (default: `./`).
-- `-T, --threads <threads>`: Number of threads for parallel processing (default: 0 = max possible).
-- `-S, --stations <stations>`: Whether to convert e57 file in distinct stations (default: false).
-- `-L, --las_version <las_version>`: Version of LAS format used for output file. Default one is (1, 4). Currently possible: (1, 0) to (1, 4).
 
 ## Contribution
 
