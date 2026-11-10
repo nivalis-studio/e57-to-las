@@ -17,6 +17,8 @@ mod get_las_writer;
 mod las_version;
 mod spatial_point;
 mod stations;
+#[cfg(test)]
+mod test_utils;
 mod utils;
 
 pub use self::convert_file::convert_file;

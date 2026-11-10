@@ -42,3 +42,83 @@ pub fn convert_point(point: e57::Point) -> Option<las::Point> {
 
     Some(las_point)
 }
+
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod tests {
+    use super::convert_point;
+    use e57::{CartesianCoordinate, Color, Point, SphericalCoordinate};
+
+    fn e57_point(cartesian: CartesianCoordinate) -> Point {
+        Point {
+            cartesian,
+            spherical: SphericalCoordinate::Invalid,
+            color: None,
+            intensity: None,
+            row: -1,
+            column: -1,
+        }
+    }
+
+    fn valid() -> CartesianCoordinate {
+        CartesianCoordinate::Valid {
+            x: 1.25,
+            y: -2.5,
+            z: 1e6 + 0.125,
+        }
+    }
+
+    #[test]
+    fn test_invalid_cartesian_is_skipped() {
+        assert!(convert_point(e57_point(CartesianCoordinate::Invalid)).is_none());
+    }
+
+    #[test]
+    fn test_direction_cartesian_is_skipped() {
+        let direction = CartesianCoordinate::Direction {
+            x: 1.0,
+            y: 0.0,
+            z: 0.0,
+        };
+        assert!(convert_point(e57_point(direction)).is_none());
+    }
+
+    #[test]
+    fn test_valid_coordinates_are_copied_exactly() {
+        let p = convert_point(e57_point(valid())).expect("valid point");
+        assert_eq!((p.x, p.y, p.z), (1.25, -2.5, 1e6 + 0.125));
+    }
+
+    #[test]
+    fn test_color_is_scaled_to_u16() {
+        let mut point = e57_point(valid());
+        point.color = Some(Color {
+            red: 1.0,
+            green: 0.0,
+            blue: 0.5,
+        });
+        let p = convert_point(point).expect("valid point");
+        // 0.5 * 65535 = 32767.5, truncated by the `as u16` cast.
+        assert_eq!(p.color, Some(las::Color::new(65535, 0, 32767)));
+    }
+
+    #[test]
+    fn test_missing_color_stays_none() {
+        let p = convert_point(e57_point(valid())).expect("valid point");
+        assert_eq!(p.color, None);
+    }
+
+    #[test]
+    fn test_intensity_is_scaled_to_u16() {
+        let mut point = e57_point(valid());
+        point.intensity = Some(1.0);
+        let p = convert_point(point).expect("valid point");
+        assert_eq!(p.intensity, 65535);
+    }
+
+    #[test]
+    fn test_missing_intensity_is_zero() {
+        let p = convert_point(e57_point(valid())).expect("valid point");
+        assert_eq!(p.intensity, 0);
+    }
+}
