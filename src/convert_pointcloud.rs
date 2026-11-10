@@ -78,6 +78,69 @@ fn write_pointcloud(
     Ok(())
 }
 
+type LasWriter = las::Writer<BufWriter<File>>;
+
+/// One pass: decodes `pointcloud` once and streams its valid points to `writer`.
+///
+/// If `writer` is still `None` at the first valid point, it is created with
+/// `create_writer`, given bounds holding only that point: the LAS offset is
+/// that point rounded to meters and the scale is 0.001. Every point is then
+/// checked against the writer's own transform.
+///
+/// Returns the number of points skipped because of invalid coordinates, or
+/// `None` if a point lies too far from the offset to fit in i32 at that scale
+/// (more than ~2,147 km). The writer is then closed and the caller must redo
+/// the conversion with the two-pass functions, which recreate (truncate) the file.
+fn stream_pointcloud(
+    input_path: &Path,
+    pointcloud: &PointCloud,
+    writer: &mut Option<LasWriter>,
+    has_color: bool,
+    create_writer: &mut impl FnMut(PointBounds) -> Result<LasWriter>,
+) -> Result<Option<usize>> {
+    let mut e57_reader = E57Reader::from_file(input_path).context("Failed to open e57 file: ")?;
+
+    let pointcloud_reader = e57_reader
+        .pointcloud_simple(pointcloud)
+        .context("Unable to get point cloud iterator: ")?;
+
+    let mut skipped_points = 0;
+    for p in pointcloud_reader {
+        let point = p.context("Could not read point: ")?;
+
+        let Some(mut las_point) = convert_point(point) else {
+            skipped_points += 1;
+            continue;
+        };
+
+        let writer = match writer {
+            Some(writer) => writer,
+            None => {
+                let mut bounds = PointBounds::default();
+                bounds.update(&las_point);
+                writer.insert(create_writer(bounds)?)
+            }
+        };
+
+        let t = writer.header().transforms();
+        let fits = t.x.inverse(las_point.x).is_ok()
+            && t.y.inverse(las_point.y).is_ok()
+            && t.z.inverse(las_point.z).is_ok();
+        if !fits {
+            writer.close().context("Failed to close the writer: ")?;
+            return Ok(None);
+        }
+
+        backfill_color(&mut las_point, has_color);
+        writer.write_point(las_point).context("Unable to write: ")?;
+    }
+
+    Ok(Some(skipped_points))
+}
+
+const FALLBACK_MESSAGE: &str =
+    "Coordinates span more than 2147 km from the first point; retrying with a coarser scale";
+
 /// Fails if `las_version` cannot store point colors but any cloud declares color,
 /// so the conversion stops before reading any point.
 pub(crate) fn check_color_support(
@@ -95,7 +158,12 @@ pub(crate) fn check_color_support(
 /// Converts a point cloud to a LAS file.
 ///
 /// This function takes the points from the point cloud, converts them to LAS points using the
-/// `convert_point` function, and writes them to `<output_path>/las/<index>.las`.
+/// `convert_point` function, and streams them to `<output_path>/las/<index>.las`.
+///
+/// The cloud is decoded once: the LAS offset is the first valid point (rounded to
+/// meters), the scale is 0.001 and the point format has color if the E57 prototype
+/// declares color. If a point lies more than ~2,147 km from that offset, the file
+/// is rewritten in two passes (bounds first, then points) with a coarser scale.
 ///
 /// # Parameters
 /// - `index`: The index of the point cloud.
@@ -128,6 +196,64 @@ pub fn convert_pointcloud(
 ) -> Result<()> {
     check_color_support(std::slice::from_ref(pointcloud), las_version)?;
 
+    let has_color = pointcloud.has_color();
+    let path = ensure_parent_dir(output_path.join("las").join(format!("{index}.las")))
+        .context("Unable to create path: ")?;
+    let mut create_writer = |bounds| {
+        get_las_writer(
+            pointcloud.guid.clone(),
+            path.clone(),
+            bounds,
+            has_color,
+            las_version,
+        )
+        .context("Unable to create writer: ")
+    };
+
+    let mut writer = None;
+    let Some(skipped_points) = stream_pointcloud(
+        input_path,
+        pointcloud,
+        &mut writer,
+        has_color,
+        &mut create_writer,
+    )?
+    else {
+        // Release the partial file's handle before the fallback truncates it.
+        drop(writer);
+        println!("Pointcloud {index}: {FALLBACK_MESSAGE}");
+        return convert_pointcloud_two_pass(
+            index,
+            pointcloud,
+            input_path,
+            output_path,
+            las_version,
+        );
+    };
+
+    if skipped_points > 0 {
+        println!("Pointcloud {index}: skipped {skipped_points} points with invalid coordinates");
+    }
+
+    // No valid point: still write an (empty) LAS file.
+    let mut writer = match writer {
+        Some(writer) => writer,
+        None => create_writer(PointBounds::default())?,
+    };
+    writer.close().context("Failed to close the writer: ")?;
+
+    Ok(())
+}
+
+/// Two-pass fallback of [`convert_pointcloud`]: scans the cloud for its bounds,
+/// then re-reads it to write the points with a transform that fits them.
+fn convert_pointcloud_two_pass(
+    index: usize,
+    pointcloud: &PointCloud,
+    input_path: &Path,
+    output_path: &Path,
+    las_version: &LasVersion,
+) -> Result<()> {
     let cloud = scan_pointcloud(input_path, pointcloud)?;
 
     if cloud.skipped_points > 0 {
@@ -167,11 +293,13 @@ fn backfill_color(point: &mut las::Point, has_color: bool) {
 
 /// Converts all point clouds of an E57 file to a single merged LAS file.
 ///
-/// This function first scans every point cloud of the E57 file at `input_path` in
-/// parallel (each worker opens its own reader) to compute the merged bounds, then
-/// re-reads the clouds sequentially, converts the points to LAS points using the
-/// `convert_point` function, and streams them to `<output_path>/las/0.las`,
-/// preserving the point cloud order. No points are buffered in memory.
+/// This function decodes the point clouds of the E57 file at `input_path` once,
+/// sequentially in index order, converts the points to LAS points using the
+/// `convert_point` function, and streams them to `<output_path>/las/0.las`.
+/// No points are buffered in memory. The LAS offset is the first valid point
+/// (rounded to meters), the scale is 0.001 and the point format has color if any
+/// E57 prototype declares color. If a point lies more than ~2,147 km from that
+/// offset, the whole file is rewritten in two passes with a coarser scale.
 ///
 /// This function is internal to the crate; use [`crate::convert_file`] with
 /// `as_stations = false` for the public merged-conversion entry point.
@@ -181,6 +309,70 @@ fn backfill_color(point: &mut las::Point, has_color: bool) {
 /// - `output_path`: A reference to the output dir.
 /// - `las_version`: The LAS version used for the output file.
 pub(crate) fn convert_pointclouds(
+    input_path: &Path,
+    output_path: &Path,
+    las_version: &LasVersion,
+) -> Result<()> {
+    let e57_reader = E57Reader::from_file(input_path).context("Failed to open e57 file: ")?;
+    let pointclouds = e57_reader.pointclouds();
+    let guid = e57_reader.guid().to_owned();
+    drop(e57_reader);
+
+    let has_color = pointclouds.iter().any(PointCloud::has_color);
+    let path = ensure_parent_dir(output_path.join("las").join("0.las"))
+        .context("Unable to create path: ")?;
+    let mut create_writer = |bounds| {
+        get_las_writer(
+            Some(guid.clone()),
+            path.clone(),
+            bounds,
+            has_color,
+            las_version,
+        )
+        .context("Unable to create writer: ")
+    };
+
+    // ponytail: clouds are decoded sequentially into the single writer; a bounded
+    // channel fed by parallel decoders is the upgrade if merged wall time matters.
+    let mut writer = None;
+    for (index, pointcloud) in pointclouds.iter().enumerate() {
+        println!("Saving pointcloud {index}...");
+
+        let Some(skipped_points) = stream_pointcloud(
+            input_path,
+            pointcloud,
+            &mut writer,
+            has_color,
+            &mut create_writer,
+        )
+        .context(format!("Error while converting pointcloud {index}"))?
+        else {
+            // Release the partial file's handle before the fallback truncates it.
+            drop(writer);
+            println!("{FALLBACK_MESSAGE}");
+            return convert_pointclouds_two_pass(input_path, output_path, las_version);
+        };
+
+        if skipped_points > 0 {
+            println!(
+                "Pointcloud {index}: skipped {skipped_points} points with invalid coordinates"
+            );
+        }
+    }
+
+    // No valid point: still write an (empty) LAS file.
+    let mut writer = match writer {
+        Some(writer) => writer,
+        None => create_writer(PointBounds::default())?,
+    };
+    writer.close().context("Failed to close the writer: ")?;
+    Ok(())
+}
+
+/// Two-pass fallback of [`convert_pointclouds`]: scans every cloud in parallel
+/// for the merged bounds, then re-reads them sequentially to write the points
+/// with a transform that fits them.
+fn convert_pointclouds_two_pass(
     input_path: &Path,
     output_path: &Path,
     las_version: &LasVersion,
@@ -223,8 +415,6 @@ pub(crate) fn convert_pointclouds(
     let mut writer = get_las_writer(Some(guid), path, bounds, has_color, las_version)
         .context("Unable to create writer: ")?;
 
-    // ponytail: pass 2 decodes sequentially into the single writer; a bounded
-    // channel fed by parallel decoders is the upgrade if merged wall time matters.
     for (index, pointcloud) in pointclouds.iter().enumerate() {
         write_pointcloud(input_path, pointcloud, &mut writer, has_color)
             .context(format!("Error while converting pointcloud {index}"))?;

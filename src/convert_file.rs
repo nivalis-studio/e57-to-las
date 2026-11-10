@@ -218,10 +218,16 @@ mod tests {
     }
 
     fn assert_xyz(points: &[las::Point], expected: &[(f64, f64, f64)]) {
+        assert_xyz_within(points, expected, 0.001);
+    }
+
+    fn assert_xyz_within(points: &[las::Point], expected: &[(f64, f64, f64)], tolerance: f64) {
         assert_eq!(points.len(), expected.len());
         for (i, (p, &(x, y, z))) in points.iter().zip(expected).enumerate() {
             assert!(
-                (p.x - x).abs() <= 0.001 && (p.y - y).abs() <= 0.001 && (p.z - z).abs() <= 0.001,
+                (p.x - x).abs() <= tolerance
+                    && (p.y - y).abs() <= tolerance
+                    && (p.z - z).abs() <= tolerance,
                 "Point {i}: got ({}, {}, {}), expected ({x}, {y}, {z})",
                 p.x,
                 p.y,
@@ -364,6 +370,85 @@ mod tests {
         let (header, points) = read_las(&dir.path().join("las").join("0.las"));
         assert_eq!(header.number_of_points(), valid_points);
         assert_eq!(points.len() as u64, valid_points);
+    }
+
+    #[test]
+    fn test_georeferenced_cloud_keeps_millimeter_scale() {
+        let clouds = vec![SyntheticCloud {
+            points: vec![
+                (0.0, 0.0, 0.0, Some((255, 0, 0))),
+                (12.345, -6.789, 1.5, Some((0, 255, 0))),
+                (-40.0, 25.25, -3.125, Some((0, 0, 255))),
+            ],
+            translation: Some((5_000_000.0, 1_000_000.0, 300.0)),
+        }];
+        for as_stations in [false, true] {
+            let dir = tempfile::tempdir().expect("Failed to create temp dir");
+            let version = LasVersion::new(1, 4).expect("valid version");
+            convert_synthetic(dir.path(), &clouds, as_stations, version)
+                .expect("conversion failed");
+
+            let (header, points) = read_las(&dir.path().join("las").join("0.las"));
+            let t = header.transforms();
+            assert_eq!(
+                (t.x.scale, t.y.scale, t.z.scale),
+                (0.001, 0.001, 0.001),
+                "stations={as_stations}"
+            );
+            assert_eq!(header.number_of_points(), 3);
+            assert_xyz(&points, &expected_xyz(&clouds[0]));
+        }
+    }
+
+    #[test]
+    fn test_stations_fallback_for_extent_over_2147_km() {
+        let clouds = vec![SyntheticCloud {
+            points: vec![(0.0, 1.0, 2.0, None), (5_000_000.0, 1.0, 2.0, None)],
+            translation: None,
+        }];
+        let dir = tempfile::tempdir().expect("Failed to create temp dir");
+        let version = LasVersion::new(1, 4).expect("valid version");
+        convert_synthetic(dir.path(), &clouds, true, version).expect("conversion failed");
+
+        let (header, points) = read_las(&dir.path().join("las").join("0.las"));
+        let scale = header.transforms().x.scale;
+        assert!(
+            scale > 0.001,
+            "x scale {scale} should be coarser than 0.001"
+        );
+        assert_eq!(header.number_of_points(), 2);
+        assert_xyz_within(&points, &expected_xyz(&clouds[0]), scale);
+    }
+
+    #[test]
+    fn test_merged_fallback_on_late_overflow_writes_each_point_once() {
+        let clouds = vec![
+            SyntheticCloud {
+                points: vec![
+                    (0.0, 0.0, 0.0, None),
+                    (1.5, -2.0, 0.5, None),
+                    (-3.0, 4.5, -1.0, None),
+                ],
+                translation: None,
+            },
+            SyntheticCloud {
+                points: vec![(2.0, 2.5, 3.0, None), (0.0, 0.0, 5_000_000.0, None)],
+                translation: None,
+            },
+        ];
+        let dir = tempfile::tempdir().expect("Failed to create temp dir");
+        let version = LasVersion::new(1, 4).expect("valid version");
+        convert_synthetic(dir.path(), &clouds, false, version).expect("conversion failed");
+
+        let (header, points) = read_las(&dir.path().join("las").join("0.las"));
+        let scale = header.transforms().z.scale;
+        assert!(
+            scale > 0.001,
+            "z scale {scale} should be coarser than 0.001"
+        );
+        assert_eq!(header.number_of_points(), 5);
+        let expected: Vec<_> = clouds.iter().flat_map(expected_xyz).collect();
+        assert_xyz_within(&points, &expected, scale);
     }
 
     #[test]
