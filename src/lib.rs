@@ -16,6 +16,7 @@ mod error;
 mod get_las_writer;
 mod las_version;
 mod spatial_point;
+mod staged_las;
 mod stations;
 #[cfg(test)]
 mod test_utils;
