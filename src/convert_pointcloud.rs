@@ -1,3 +1,4 @@
+use std::ops::ControlFlow;
 use std::sync::mpsc::{Receiver, SyncSender, sync_channel};
 use std::{fs::File, io::BufWriter, path::Path};
 
@@ -16,6 +17,47 @@ struct CloudStats {
     skipped_points: usize,
 }
 
+/// Opens its own `E57Reader` on `input_path` and calls `on_point` for every
+/// point [`convert_point`] accepts.
+///
+/// Returns how many points were skipped because of invalid coordinates, and
+/// whether any source point carried color. Skipped points count for color too:
+/// [`scan_pointcloud`] uses that flag to choose the LAS point format, and a
+/// cloud can hold a colored point whose coordinates are invalid.
+///
+/// `on_point` returns [`ControlFlow::Break`] to stop before the next point. The
+/// skipped count then covers only the points read so far.
+fn for_each_las_point(
+    input_path: &Path,
+    pointcloud: &PointCloud,
+    mut on_point: impl FnMut(las::Point) -> Result<ControlFlow<()>>,
+) -> Result<(usize, bool)> {
+    let mut e57_reader = E57Reader::from_file(input_path).context("Failed to open e57 file: ")?;
+
+    let pointcloud_reader = e57_reader
+        .pointcloud_simple(pointcloud)
+        .context("Unable to get point cloud iterator: ")?;
+
+    let mut skipped_points = 0;
+    let mut has_color = false;
+    for p in pointcloud_reader {
+        let point = p.context("Could not read point: ")?;
+        if point.color.is_some() {
+            has_color = true;
+        }
+
+        let Some(las_point) = convert_point(point) else {
+            skipped_points += 1;
+            continue;
+        };
+        if on_point(las_point)?.is_break() {
+            break;
+        }
+    }
+
+    Ok((skipped_points, has_color))
+}
+
 /// Pass 1: scans a single point cloud without keeping its points.
 ///
 /// Opens its own `E57Reader` on `input_path` so that callers can safely invoke it
@@ -23,32 +65,17 @@ struct CloudStats {
 /// (used to derive the LAS offset and scale), whether any point carries color,
 /// and how many points were skipped because of invalid coordinates.
 fn scan_pointcloud(input_path: &Path, pointcloud: &PointCloud) -> Result<CloudStats> {
-    let mut e57_reader = E57Reader::from_file(input_path).context("Failed to open e57 file: ")?;
+    let mut bounds = PointBounds::default();
+    let (skipped_points, has_color) = for_each_las_point(input_path, pointcloud, |las_point| {
+        bounds.update(&las_point);
+        Ok(ControlFlow::Continue(()))
+    })?;
 
-    let pointcloud_reader = e57_reader
-        .pointcloud_simple(pointcloud)
-        .context("Unable to get point cloud iterator: ")?;
-
-    let mut stats = CloudStats {
-        bounds: PointBounds::default(),
-        has_color: false,
-        skipped_points: 0,
-    };
-
-    for p in pointcloud_reader {
-        let point = p.context("Could not read point: ")?;
-
-        if point.color.is_some() {
-            stats.has_color = true;
-        }
-
-        match convert_point(point) {
-            Some(las_point) => stats.bounds.update(&las_point),
-            None => stats.skipped_points += 1,
-        }
-    }
-
-    Ok(stats)
+    Ok(CloudStats {
+        bounds,
+        has_color,
+        skipped_points,
+    })
 }
 
 /// Pass 2: re-reads a single point cloud and streams its points to `writer`.
@@ -61,25 +88,51 @@ fn write_pointcloud(
     writer: &mut las::Writer<BufWriter<File>>,
     has_color: bool,
 ) -> Result<()> {
-    let mut e57_reader = E57Reader::from_file(input_path).context("Failed to open e57 file: ")?;
-
-    let pointcloud_reader = e57_reader
-        .pointcloud_simple(pointcloud)
-        .context("Unable to get point cloud iterator: ")?;
-
-    for p in pointcloud_reader {
-        let point = p.context("Could not read point: ")?;
-
-        if let Some(mut las_point) = convert_point(point) {
-            backfill_color(&mut las_point, has_color);
-            writer.write_point(las_point).context("Unable to write: ")?;
-        }
-    }
+    for_each_las_point(input_path, pointcloud, |mut las_point| {
+        backfill_color(&mut las_point, has_color);
+        writer.write_point(las_point).context("Unable to write: ")?;
+        Ok(ControlFlow::Continue(()))
+    })?;
 
     Ok(())
 }
 
 type LasWriter = las::Writer<BufWriter<File>>;
+
+/// Creates `writer` from the first point when it is still `None`, then writes
+/// `las_point` if it fits that writer's transform.
+///
+/// Returns `Ok(false)` when the point lies too far from the offset to fit in an
+/// i32 at the writer's scale (more than ~2,147 km). The writer is closed in
+/// that case, so the caller can truncate the file and retry with two passes.
+fn write_if_point_fits(
+    writer: &mut Option<LasWriter>,
+    mut las_point: las::Point,
+    has_color: bool,
+    create_writer: &mut impl FnMut(PointBounds) -> Result<LasWriter>,
+) -> Result<bool> {
+    let writer = match writer {
+        Some(writer) => writer,
+        None => {
+            let mut bounds = PointBounds::default();
+            bounds.update(&las_point);
+            writer.insert(create_writer(bounds)?)
+        }
+    };
+
+    let t = writer.header().transforms();
+    let fits = t.x.inverse(las_point.x).is_ok()
+        && t.y.inverse(las_point.y).is_ok()
+        && t.z.inverse(las_point.z).is_ok();
+    if !fits {
+        writer.close().context("Failed to close the writer: ")?;
+        return Ok(false);
+    }
+
+    backfill_color(&mut las_point, has_color);
+    writer.write_point(las_point).context("Unable to write: ")?;
+    Ok(true)
+}
 
 /// One pass: decodes `pointcloud` once and streams its valid points to `writer`.
 ///
@@ -99,43 +152,18 @@ fn stream_pointcloud(
     has_color: bool,
     create_writer: &mut impl FnMut(PointBounds) -> Result<LasWriter>,
 ) -> Result<Option<usize>> {
-    let mut e57_reader = E57Reader::from_file(input_path).context("Failed to open e57 file: ")?;
-
-    let pointcloud_reader = e57_reader
-        .pointcloud_simple(pointcloud)
-        .context("Unable to get point cloud iterator: ")?;
-
-    let mut skipped_points = 0;
-    for p in pointcloud_reader {
-        let point = p.context("Could not read point: ")?;
-
-        let Some(mut las_point) = convert_point(point) else {
-            skipped_points += 1;
-            continue;
-        };
-
-        let writer = match writer {
-            Some(writer) => writer,
-            None => {
-                let mut bounds = PointBounds::default();
-                bounds.update(&las_point);
-                writer.insert(create_writer(bounds)?)
-            }
-        };
-
-        let t = writer.header().transforms();
-        let fits = t.x.inverse(las_point.x).is_ok()
-            && t.y.inverse(las_point.y).is_ok()
-            && t.z.inverse(las_point.z).is_ok();
-        if !fits {
-            writer.close().context("Failed to close the writer: ")?;
-            return Ok(None);
+    let mut fits = true;
+    let (skipped_points, _) = for_each_las_point(input_path, pointcloud, |las_point| {
+        if !write_if_point_fits(writer, las_point, has_color, create_writer)? {
+            fits = false;
+            return Ok(ControlFlow::Break(()));
         }
+        Ok(ControlFlow::Continue(()))
+    })?;
 
-        backfill_color(&mut las_point, has_color);
-        writer.write_point(las_point).context("Unable to write: ")?;
+    if !fits {
+        return Ok(None);
     }
-
     Ok(Some(skipped_points))
 }
 
@@ -159,28 +187,21 @@ fn send_pointcloud(
     pointcloud: &PointCloud,
     sender: &SyncSender<Vec<las::Point>>,
 ) -> Result<()> {
-    let mut e57_reader = E57Reader::from_file(input_path).context("Failed to open e57 file: ")?;
-
-    let pointcloud_reader = e57_reader
-        .pointcloud_simple(pointcloud)
-        .context("Unable to get point cloud iterator: ")?;
-
-    let mut skipped_points = 0;
+    let mut stopped = false;
     let mut batch = Vec::with_capacity(BATCH_SIZE);
-    for p in pointcloud_reader {
-        let point = p.context("Could not read point: ")?;
-
-        match convert_point(point) {
-            Some(las_point) => batch.push(las_point),
-            None => skipped_points += 1,
-        }
-
+    let (skipped_points, _) = for_each_las_point(input_path, pointcloud, |las_point| {
+        batch.push(las_point);
         if batch.len() == BATCH_SIZE {
             let full = std::mem::replace(&mut batch, Vec::with_capacity(BATCH_SIZE));
             if sender.send(full).is_err() {
-                return Ok(());
+                stopped = true;
+                return Ok(ControlFlow::Break(()));
             }
         }
+        Ok(ControlFlow::Continue(()))
+    })?;
+    if stopped {
+        return Ok(());
     }
     if !batch.is_empty() && sender.send(batch).is_err() {
         return Ok(());
@@ -207,27 +228,10 @@ fn write_batches(
 ) -> Result<bool> {
     let mut writer = None;
     for batch in receiver {
-        for mut las_point in batch {
-            let writer = match &mut writer {
-                Some(writer) => writer,
-                None => {
-                    let mut bounds = PointBounds::default();
-                    bounds.update(&las_point);
-                    writer.insert(create_writer(bounds)?)
-                }
-            };
-
-            let t = writer.header().transforms();
-            let fits = t.x.inverse(las_point.x).is_ok()
-                && t.y.inverse(las_point.y).is_ok()
-                && t.z.inverse(las_point.z).is_ok();
-            if !fits {
-                writer.close().context("Failed to close the writer: ")?;
+        for las_point in batch {
+            if !write_if_point_fits(&mut writer, las_point, has_color, &mut create_writer)? {
                 return Ok(false);
             }
-
-            backfill_color(&mut las_point, has_color);
-            writer.write_point(las_point).context("Unable to write: ")?;
         }
     }
 
