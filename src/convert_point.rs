@@ -10,7 +10,8 @@ use e57::CartesianCoordinate;
 ///
 /// # Returns
 /// - `Option<las::Point>`: An optional las point. The function returns `None` if the Cartesian coordinates
-///   are not valid. Otherwise, it returns a `Some(las::Point)` containing the converted point.
+///   are not valid, or if `x`, `y` or `z` is not finite (`NaN` or ±infinity). Otherwise, it returns a
+///   `Some(las::Point)` containing the converted point.
 ///
 /// # Example
 /// ```ignore
@@ -21,13 +22,17 @@ use e57::CartesianCoordinate;
 pub fn convert_point(point: e57::Point) -> Option<las::Point> {
     let mut las_point = las::Point::default();
 
-    if let CartesianCoordinate::Valid { x, y, z } = point.cartesian {
-        las_point.x = x;
-        las_point.y = y;
-        las_point.z = z;
-    } else {
+    let CartesianCoordinate::Valid { x, y, z } = point.cartesian else {
+        return None;
+    };
+    // The E57 reader reports these as valid. NaN lands on the LAS offset and
+    // ±infinity makes the header scale infinite, so every point reads back as NaN.
+    if !x.is_finite() || !y.is_finite() || !z.is_finite() {
         return None;
     }
+    las_point.x = x;
+    las_point.y = y;
+    las_point.z = z;
 
     if let Some(color) = point.color {
         las_point.color = Some(las::Color {
@@ -81,6 +86,35 @@ mod tests {
             z: 0.0,
         };
         assert!(convert_point(e57_point(direction)).is_none());
+    }
+
+    #[test]
+    fn test_non_finite_coordinates_are_skipped() {
+        for bad in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            let cases = [
+                CartesianCoordinate::Valid {
+                    x: bad,
+                    y: 1.0,
+                    z: 2.0,
+                },
+                CartesianCoordinate::Valid {
+                    x: 1.0,
+                    y: bad,
+                    z: 2.0,
+                },
+                CartesianCoordinate::Valid {
+                    x: 1.0,
+                    y: 2.0,
+                    z: bad,
+                },
+            ];
+            for cartesian in cases {
+                assert!(
+                    convert_point(e57_point(cartesian.clone())).is_none(),
+                    "non-finite coordinate should be skipped: {cartesian:?}"
+                );
+            }
+        }
     }
 
     #[test]
