@@ -1,4 +1,5 @@
 use crate::spatial_point::SpatialPoint;
+use crate::utils::stations_file_path;
 use anyhow::Result;
 use e57::PointCloud;
 use std::{
@@ -28,7 +29,7 @@ pub(crate) fn save_stations<P: AsRef<Path>>(
         })
         .collect();
 
-    let stations_file = File::create(output_path.as_ref().join("stations.json"))?;
+    let stations_file = File::create(stations_file_path(output_path.as_ref()))?;
     let mut writer = BufWriter::new(stations_file);
     serde_json::to_writer(&mut writer, &stations)?;
     writer.flush()?;

@@ -12,13 +12,7 @@ use e57::CartesianCoordinate;
 /// - `Option<las::Point>`: An optional las point. The function returns `None` if the Cartesian coordinates
 ///   are not valid. Otherwise, it returns a `Some(las::Point)` containing the converted point.
 ///
-/// # Example
-/// ```ignore
-/// use e57_to_las::convert_point;
-/// let e57_point = e57::Point {  };
-/// let las_point = convert_point(e57_point);
-/// ```
-pub fn convert_point(point: e57::Point) -> Option<las::Point> {
+pub(crate) fn convert_point(point: e57::Point) -> Option<las::Point> {
     let mut las_point = las::Point::default();
 
     if let CartesianCoordinate::Valid { x, y, z } = point.cartesian {

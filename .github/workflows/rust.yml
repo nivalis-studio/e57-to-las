@@ -22,5 +22,12 @@ jobs:
         run: cargo fmt --check
       - name: Clippy
         run: cargo clippy --all-targets -- -D warnings
+      - name: Library without the cli feature
+        run: |
+          cargo clippy --no-default-features --lib -- -D warnings
+          if cargo tree --no-default-features -e normal --prefix none | grep -q '^clap '; then
+            echo "clap must not be compiled into the library without default features" >&2
+            exit 1
+          fi
       - name: Run tests
         run: cargo test --verbose

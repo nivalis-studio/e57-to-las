@@ -1,9 +1,12 @@
+use std::str::FromStr;
+
 use crate::{Error, Result};
 
 const ALLOWED_VERSIONS: [(u8, u8); 5] = [(1, 0), (1, 1), (1, 2), (1, 3), (1, 4)];
 const MIN_VERSION: (u8, u8) = ALLOWED_VERSIONS[0];
 const MAX_VERSION: (u8, u8) = ALLOWED_VERSIONS[ALLOWED_VERSIONS.len() - 1];
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct LasVersion {
     major: u8,
     minor: u8,
@@ -28,16 +31,23 @@ impl LasVersion {
     }
 }
 
+impl Default for LasVersion {
+    /// LAS 1.4, the version the command-line tool writes unless told otherwise.
+    fn default() -> Self {
+        LasVersion { major: 1, minor: 4 }
+    }
+}
+
 impl std::fmt::Display for LasVersion {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}.{}", self.major, self.minor)
     }
 }
 
-impl TryFrom<&str> for LasVersion {
-    type Error = Error;
+impl FromStr for LasVersion {
+    type Err = Error;
 
-    fn try_from(value: &str) -> std::prelude::v1::Result<Self, Self::Error> {
+    fn from_str(value: &str) -> Result<Self> {
         let parts: Vec<&str> = value.split('.').collect();
 
         if parts.len() != 2 {
@@ -57,6 +67,14 @@ impl TryFrom<&str> for LasVersion {
     }
 }
 
+impl TryFrom<&str> for LasVersion {
+    type Error = Error;
+
+    fn try_from(value: &str) -> Result<Self> {
+        value.parse()
+    }
+}
+
 impl From<&LasVersion> for las::Version {
     fn from(value: &LasVersion) -> Self {
         Self {
@@ -73,6 +91,8 @@ fn format_version((major, minor): (u8, u8)) -> String {
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 mod test {
+    use std::str::FromStr;
+
     use crate::las_version;
 
     #[test]
@@ -94,6 +114,23 @@ mod test {
         let las_version = las_version::LasVersion::try_from("2.c");
 
         assert!(las_version.is_err())
+    }
+
+    #[test]
+    fn test_from_str_round_trips_supported_versions() {
+        for minor in 0..=4 {
+            let text = format!("1.{minor}");
+            let version = las_version::LasVersion::from_str(&text).expect("valid version");
+            assert_eq!(
+                version,
+                las_version::LasVersion::new(1, minor).expect("valid")
+            );
+            assert_eq!(version.to_string(), text);
+        }
+        assert_eq!(
+            las_version::LasVersion::default(),
+            las_version::LasVersion::new(1, 4).expect("valid")
+        );
     }
 
     #[test]

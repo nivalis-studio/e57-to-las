@@ -16,7 +16,7 @@ A utility to convert E57 point cloud files to LAS format. It is based on the [E5
 
 - [x] Parallel processing using `rayon` for faster conversion.
 - [x] Streaming conversion: points are written as they are decoded, so memory use stays roughly constant regardless of the number of points.
-- [x] Errors are reported with context and stop the conversion. Points with invalid coordinates are skipped, and the number skipped per point cloud is printed.
+- [x] Errors are reported with context and stop the conversion. Points with invalid coordinates are skipped. The command-line tool prints how many were skipped; library callers read the count from `Summary`.
 - [x] Optional pointclouds splitting in distinct LAS files and generation of station file (`stations.json`), containing spatial coordinates of station points. This is activated by adding the `--stations` flag, and the station points are calculated based on the transformation translations of the point clouds.
 
 ## Usage
@@ -50,6 +50,7 @@ e57-to-las --path scan.e57 --output out/ --stations --las-version 1.2
 - Without `--stations`, all point clouds are merged into `<output>/las/0.las`. The point clouds are decoded in parallel, so their points can be interleaved in the file and the order can differ between runs; the set of points is always the same. Use `--threads 1` to keep the points in point cloud order.
 - With `--stations`, each point cloud is written to `<output>/las/<index>.las`, and `<output>/stations.json` maps each index to the `x`/`y`/`z` translation of that scan.
 - Coordinates are stored with 1 mm precision. A coarser precision is only used when the points span more than about 2,147 km.
+- The tool prints how many points were written, the path of each file it wrote, and, when some points had invalid coordinates, how many were skipped.
 
 ### Library
 
@@ -62,17 +63,27 @@ cargo add e57-to-las
 You can then use it in your code as follows:
 
 ```rust
-use e57_to_las::{convert_file, LasVersion};
+use e57_to_las::{LasVersion, Options, convert_file};
 
-fn main() {
-    let input_path = String::from("path/to/input.e57");
-    let output_path = String::from("path/to/output/directory");
-    let number_of_threads = 0; // 0 = max possible
-    let as_stations = true;
-    let las_version = LasVersion::new(1, 4).expect("Failed to create LAS version"); // 1.0 to 1.4
-    convert_file(input_path, output_path, number_of_threads, as_stations, las_version)
-        .expect("conversion failed");
+fn main() -> e57_to_las::Result<()> {
+    let options = Options {
+        las_version: LasVersion::new(1, 4)?, // 1.0 to 1.4
+        threads: 0, // 0 = one worker per logical CPU
+        stations: true,
+    };
+    let summary = convert_file("path/to/input.e57", "path/to/output/directory", &options)?;
+    println!(
+        "Wrote {} points ({} skipped)",
+        summary.points_written, summary.points_skipped
+    );
+    Ok(())
 }
+```
+
+The `cli` feature (on by default) builds the `e57-to-las` binary and pulls in `clap`. Disable default features to depend on the library without it:
+
+```toml
+e57-to-las = { version = "0.9.0", default-features = false }
 ```
 
 ## Contribution
@@ -84,7 +95,7 @@ If you'd like to contribute to the development of this tool, please create an is
 Here are some of the main dependencies used:
 
 - `rayon`: Parallelism
-- `clap`: Command-line argument parsing
+- `clap`: Command-line argument parsing (optional `cli` feature, enabled by default)
 - `e57`: E57 file format reader
 - `las`: LAS file format writer
 - `uuid`: For GUID processing
