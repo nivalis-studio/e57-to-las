@@ -381,6 +381,33 @@ mod tests {
     }
 
     #[test]
+    fn test_stations_mode_empty_file_creates_missing_output_dir() {
+        let input_dir = tempfile::tempdir().expect("Failed to create temp dir");
+        let input = input_dir.path().join("empty.e57");
+        write_synthetic_e57(&input, &[]);
+
+        let output_dir = input_dir.path().join("missing-output");
+        assert!(
+            !output_dir.exists(),
+            "The output directory must not exist before conversion"
+        );
+
+        let version = LasVersion::new(1, 4).expect("valid version");
+        let result = convert_file(
+            input.to_str().expect("non UTF-8 path").to_string(),
+            output_dir.to_str().expect("non UTF-8 path").to_string(),
+            1,
+            true,
+            version,
+        );
+        assert!(result.is_ok(), "conversion failed: {result:?}");
+
+        let json = std::fs::read_to_string(output_dir.join("stations.json"))
+            .expect("Expected stations.json");
+        assert_eq!(json, "{}");
+    }
+
+    #[test]
     fn test_stations_mode_reads_back_each_cloud_and_stations() {
         let dir = tempfile::tempdir().expect("Failed to create temp dir");
         let clouds = mixed_clouds();

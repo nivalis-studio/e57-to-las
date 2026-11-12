@@ -1,5 +1,6 @@
 use crate::spatial_point::SpatialPoint;
-use anyhow::Result;
+use crate::utils::ensure_parent_dir;
+use anyhow::{Context, Result};
 use e57::PointCloud;
 use std::{
     collections::BTreeMap,
@@ -28,7 +29,9 @@ pub(crate) fn save_stations<P: AsRef<Path>>(
         })
         .collect();
 
-    let stations_file = File::create(output_path.as_ref().join("stations.json"))?;
+    let stations_path = ensure_parent_dir(output_path.as_ref().join("stations.json"))?;
+    let stations_file = File::create(&stations_path)
+        .with_context(|| format!("Failed to create {}.", stations_path.display()))?;
     let mut writer = BufWriter::new(stations_file);
     serde_json::to_writer(&mut writer, &stations)?;
     writer.flush()?;
