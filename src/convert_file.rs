@@ -454,6 +454,51 @@ mod tests {
     }
 
     #[test]
+    fn test_non_finite_points_are_skipped_and_scale_stays_millimeter() {
+        // One NaN and one +inf, on different axes, among finite points.
+        let clouds = vec![SyntheticCloud {
+            points: vec![
+                (0.0, 0.0, 0.0, None),
+                (1.5, -2.0, 0.5, None),
+                (f64::NAN, 1.0, 2.0, None),
+                (3.0, f64::INFINITY, -1.0, None),
+                (-3.0, 4.5, -1.0, None),
+            ],
+            translation: Some((10.0, -20.0, 5.5)),
+        }];
+        let finite = SyntheticCloud {
+            points: clouds[0]
+                .points
+                .iter()
+                .copied()
+                .filter(|(x, y, z, _)| x.is_finite() && y.is_finite() && z.is_finite())
+                .collect(),
+            translation: clouds[0].translation,
+        };
+
+        for as_stations in [false, true] {
+            let dir = tempfile::tempdir().expect("Failed to create temp dir");
+            let version = LasVersion::new(1, 4).expect("valid version");
+            convert_synthetic(dir.path(), &clouds, as_stations, version)
+                .unwrap_or_else(|e| panic!("stations={as_stations}: conversion failed: {e:?}"));
+
+            let (header, points) = read_las(&dir.path().join("las").join("0.las"));
+            let t = header.transforms();
+            assert_eq!(
+                (t.x.scale, t.y.scale, t.z.scale),
+                (0.001, 0.001, 0.001),
+                "stations={as_stations}"
+            );
+            assert_eq!(
+                header.number_of_points(),
+                finite.points.len() as u64,
+                "stations={as_stations}"
+            );
+            assert_xyz(&points, &expected_xyz(&finite));
+        }
+    }
+
+    #[test]
     fn test_georeferenced_cloud_keeps_millimeter_scale() {
         let clouds = vec![SyntheticCloud {
             points: vec![
