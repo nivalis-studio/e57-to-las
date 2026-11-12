@@ -13,6 +13,9 @@ use crate::stations::save_stations;
 /// This function reads an e57 file, extracts the point clouds, and saves them in single or multiples las files.
 /// It can also create stations record file (useful if you use potree).
 ///
+/// The LAS files appear in the output directory only after they have been fully
+/// written. If conversion fails, partial LAS files are removed.
+///
 /// # Parameters
 /// - `input_path`: The path to the e57 file that needs to be converted.
 /// - `output_path`: The destination (output dir) where the files will be saved.
@@ -653,6 +656,119 @@ mod tests {
             convert_synthetic(dir.path(), &mixed_clouds(), as_stations, version)
                 .unwrap_or_else(|e| panic!("stations={as_stations}: conversion failed: {e:?}"));
             assert!(dir.path().join("las").join("0.las").is_file());
+        }
+    }
+
+    // Flips a byte in a later point-data page so the reader yields several
+    // packets and then fails with a checksum error. The XML, stored after the
+    // point data, stays intact.
+    fn corrupt_later_point_page(path: &Path) {
+        const PAGE_SIZE: usize = 1024;
+        let mut bytes = std::fs::read(path).expect("read e57");
+        let xml_offset = usize::try_from(u64::from_le_bytes(
+            bytes[24..32].try_into().expect("xml offset bytes"),
+        ))
+        .expect("xml offset fits");
+        // Two full packets of f64 xyz points are about 130 KB. Past that, a
+        // checksum error happens only after those points have been decoded.
+        let mut offset = xml_offset * 3 / 4;
+        offset -= offset % PAGE_SIZE;
+        let minimum = PAGE_SIZE * 160;
+        if offset < minimum {
+            offset = minimum;
+        }
+        assert!(
+            offset + 64 < xml_offset,
+            "point data ends at {xml_offset}, corruption at {offset} would miss it"
+        );
+        bytes[offset] ^= 0xFF;
+        std::fs::write(path, bytes).expect("write e57");
+    }
+
+    /// How many points the corrupt file yields before the read fails.
+    fn points_before_read_error(path: &Path) -> usize {
+        let mut reader = e57::E57Reader::from_file(path).expect("open corrupt e57");
+        let pointcloud = reader
+            .pointclouds()
+            .into_iter()
+            .next()
+            .expect("point cloud");
+        let iterator = reader
+            .pointcloud_simple(&pointcloud)
+            .expect("point iterator");
+        let mut decoded = 0;
+        let mut failed = false;
+        for point in iterator {
+            match point {
+                Ok(_) => decoded += 1,
+                Err(_) => {
+                    failed = true;
+                    break;
+                }
+            }
+        }
+        assert!(failed, "corrupt file was read without error");
+        decoded
+    }
+
+    fn assert_no_output_files(dir: &Path) {
+        let las_dir = dir.join("las");
+        if las_dir.exists() {
+            let leftovers: Vec<_> = std::fs::read_dir(&las_dir)
+                .expect("read las dir")
+                .map(|entry| entry.expect("las dir entry").path())
+                .collect();
+            assert!(
+                leftovers.is_empty(),
+                "partial output left behind: {leftovers:?}"
+            );
+        }
+        assert!(
+            !dir.join("stations.json").exists(),
+            "stations.json should not be written when conversion fails"
+        );
+    }
+
+    #[test]
+    fn test_failed_conversion_leaves_no_las_file() {
+        // Several packets, so the corrupt page is not in the first one. Merged
+        // mode only sends a batch once BATCH_SIZE points are decoded, so the
+        // failure must come after that or the writer never opens a file.
+        let clouds = vec![SyntheticCloud {
+            points: (0..12_000)
+                .map(|i| ((i % 1000) as f64 * 0.01, (i / 1000) as f64, -0.5, None))
+                .collect(),
+            translation: None,
+        }];
+
+        for as_stations in [false, true] {
+            let dir = tempfile::tempdir().expect("Failed to create temp dir");
+            let input = dir.path().join("input.e57");
+            write_synthetic_e57(&input, &clouds);
+            corrupt_later_point_page(&input);
+
+            let decoded = points_before_read_error(&input);
+            assert!(
+                decoded >= crate::convert_pointcloud::BATCH_SIZE,
+                "stations={as_stations}: only {decoded} points before the error, \
+                 the writer would not have opened a file"
+            );
+
+            let version = LasVersion::new(1, 4).expect("valid version");
+            let err = convert_file(
+                input.to_str().expect("non UTF-8 path").to_string(),
+                dir.path().to_str().expect("non UTF-8 path").to_string(),
+                2,
+                as_stations,
+                version,
+            )
+            .expect_err("conversion of a corrupt file should fail");
+            let message = format!("{err:#}");
+            assert!(
+                message.contains("Could not read point"),
+                "stations={as_stations}: unexpected error: {message}"
+            );
+            assert_no_output_files(dir.path());
         }
     }
 }

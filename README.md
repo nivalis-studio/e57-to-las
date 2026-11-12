@@ -16,7 +16,7 @@ A utility to convert E57 point cloud files to LAS format. It is based on the [E5
 
 - [x] Parallel processing using `rayon` for faster conversion.
 - [x] Streaming conversion: points are written as they are decoded, so memory use stays roughly constant regardless of the number of points.
-- [x] Errors are reported with context and stop the conversion. Points with invalid coordinates are skipped, and the number skipped per point cloud is printed.
+- [x] Errors are reported with context and stop the conversion. A failed conversion leaves no LAS file behind. Points with invalid coordinates are skipped, and the number skipped per point cloud is printed.
 - [x] Optional pointclouds splitting in distinct LAS files and generation of station file (`stations.json`), containing spatial coordinates of station points. This is activated by adding the `--stations` flag, and the station points are calculated based on the transformation translations of the point clouds.
 
 ## Usage
