@@ -22,7 +22,7 @@ mod stations;
 mod test_utils;
 mod utils;
 
-pub use self::convert_file::convert_file;
+pub use self::convert_file::{Options, Summary, convert, convert_file};
 pub use self::convert_point::convert_point;
 pub use self::convert_pointcloud::convert_pointcloud;
 pub use error::{Error, Result};

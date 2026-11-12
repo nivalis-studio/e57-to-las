@@ -1,20 +1,93 @@
+use std::fs::File;
+use std::io::BufReader;
+use std::path::{Path, PathBuf};
+
+use anyhow::Context;
 use rayon::prelude::*;
-use std::path::Path;
 
-use anyhow::{Context, Result};
-
-use crate::convert_pointcloud::{check_color_support, convert_pointcloud, convert_pointclouds};
-
-use crate::LasVersion;
+use crate::convert_pointcloud::{
+    PointCounts, check_color_support, convert_pointcloud_counted, convert_pointclouds,
+};
 use crate::stations::save_stations;
+use crate::utils::{las_file_path, stations_file_path};
+use crate::{Error, LasVersion, Result};
+
+const E57_FORMAT_NAME: &str = "ASTM E57 3D Imaging Data File";
+
+/// How [`convert`] writes LAS output.
+///
+/// `threads` is `0` to use one worker per logical CPU. `stations` writes one LAS
+/// file per point cloud plus `stations.json`; otherwise every cloud is merged
+/// into `las/0.las`.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Options {
+    pub las_version: LasVersion,
+    pub threads: usize,
+    pub stations: bool,
+}
+
+/// Files written by [`convert`], and how many points were kept or dropped.
+///
+/// `files` lists each `las/<index>.las` in point-cloud order. In stations mode it
+/// also lists `stations.json` last. `points_skipped` counts points whose Cartesian
+/// coordinates were invalid. `coarse_scale` is true when a file spans more than
+/// ~2,147 km and was therefore written with a scale coarser than 1 mm.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct Summary {
+    pub files: Vec<PathBuf>,
+    pub points_written: u64,
+    pub points_skipped: u64,
+    pub coarse_scale: bool,
+}
+
+/// Converts an E57 file to LAS.
+///
+/// Reads `input`, checks that the LAS version can store the file's color, and
+/// writes into `output_dir`. Nothing is printed: the skipped-point total and
+/// the coarse-scale flag are on the returned [`Summary`].
+///
+/// Each LAS file appears in the output directory only after it has been fully
+/// written. If conversion fails, partial LAS files are removed.
+///
+/// # Example
+/// ```no_run
+/// use e57_to_las::{LasVersion, Options, convert};
+///
+/// fn main() -> e57_to_las::Result<()> {
+///     let options = Options {
+///         las_version: LasVersion::new(1, 4)?,
+///         threads: 0, // 0 = one worker per logical CPU
+///         stations: true,
+///     };
+///     let summary = convert("path/to/input.e57", "path/to/output/directory", &options)?;
+///     println!(
+///         "Wrote {} points ({} skipped)",
+///         summary.points_written, summary.points_skipped
+///     );
+///     Ok(())
+/// }
+/// ```
+pub fn convert(
+    input: impl AsRef<Path>,
+    output_dir: impl AsRef<Path>,
+    options: &Options,
+) -> Result<Summary> {
+    let input = input.as_ref();
+    let output_dir = output_dir.as_ref();
+    let pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(options.threads)
+        .build()
+        .map_err(anyhow::Error::from)?;
+
+    pool.install(|| convert_opened(input, output_dir, options))
+}
 
 /// Converts a given e57 file into LAS format and, optionally, as stations.
 ///
-/// This function reads an e57 file, extracts the point clouds, and saves them in single or multiples las files.
-/// It can also create stations record file (useful if you use potree).
-///
-/// The LAS files appear in the output directory only after they have been fully
-/// written. If conversion fails, partial LAS files are removed.
+/// Same conversion as [`convert`], with the arguments spelled out and nothing
+/// returned on success. Use [`convert`] to get the [`Summary`] and an error
+/// that can be matched.
 ///
 /// # Parameters
 /// - `input_path`: The path to the e57 file that needs to be converted.
@@ -40,54 +113,99 @@ pub fn convert_file(
     number_of_threads: usize,
     as_stations: bool,
     las_version: LasVersion,
-) -> Result<()> {
-    let pool = rayon::ThreadPoolBuilder::new()
-        .num_threads(number_of_threads)
-        .build()
-        .context("Failed to initialize the thread pool for rayon")?;
+) -> anyhow::Result<()> {
+    convert(
+        input_path,
+        output_path,
+        &Options {
+            las_version,
+            threads: number_of_threads,
+            stations: as_stations,
+        },
+    )?;
+    Ok(())
+}
 
-    pool.install(|| {
-        let e57_reader =
-            e57::E57Reader::from_file(&input_path).context("Failed to open e57 file")?;
+fn convert_opened(input: &Path, output_dir: &Path, options: &Options) -> Result<Summary> {
+    let e57_reader = open_e57(input)?;
+    if e57_reader.format_name() != E57_FORMAT_NAME {
+        return Err(Error::InvalidFormat {
+            path: input.to_path_buf(),
+        });
+    }
 
-        if e57_reader.format_name() != "ASTM E57 3D Imaging Data File" {
-            return Err(anyhow::anyhow!("Invalid file format"));
-        }
+    let pointclouds = e57_reader.pointclouds();
+    check_color_support(&pointclouds, &options.las_version)?;
 
-        let pointclouds = e57_reader.pointclouds();
-        check_color_support(&pointclouds, &las_version)?;
+    if options.stations {
+        return write_stations(input, output_dir, &pointclouds, &options.las_version);
+    }
 
-        if as_stations {
-            pointclouds
-                .par_iter()
-                .enumerate()
-                .try_for_each(|(index, pointcloud)| -> Result<()> {
-                    println!("Saving pointcloud {index}...");
-
-                    convert_pointcloud(
-                        index,
-                        pointcloud,
-                        Path::new(&input_path),
-                        Path::new(&output_path),
-                        &las_version,
-                    )
-                    .context(format!("Error while converting pointcloud {}", index))?;
-
-                    Ok(())
-                })
-                .context("Error during the parallel processing of pointclouds")?;
-
-            save_stations(output_path, &pointclouds)?;
-        } else {
-            convert_pointclouds(
-                Path::new(&input_path),
-                Path::new(&output_path),
-                &las_version,
-            )
-            .context("Error during the parallel processing of pointclouds")?;
-        }
-        Ok(())
+    drop(pointclouds);
+    drop(e57_reader);
+    let counts = convert_pointclouds(input, output_dir, &options.las_version)
+        .map_err(|err| err.context("Error during the parallel processing of pointclouds"))?;
+    Ok(Summary {
+        files: vec![las_file_path(output_dir, 0)],
+        points_written: counts.written,
+        points_skipped: counts.skipped,
+        coarse_scale: counts.coarse_scale,
     })
+}
+
+fn write_stations(
+    input: &Path,
+    output_dir: &Path,
+    pointclouds: &[e57::PointCloud],
+    las_version: &LasVersion,
+) -> Result<Summary> {
+    let counts = pointclouds
+        .par_iter()
+        .enumerate()
+        .map(|(index, pointcloud)| {
+            convert_pointcloud_counted(index, pointcloud, input, output_dir, las_version)
+                .map_err(|err| err.context(format!("Error while converting pointcloud {index}")))
+        })
+        .collect::<Result<Vec<PointCounts>>>()
+        .map_err(|err| err.context("Error during the parallel processing of pointclouds"))?;
+
+    save_stations(output_dir, pointclouds).context("Failed to write stations.json")?;
+
+    Ok(Summary {
+        files: station_files(output_dir, pointclouds.len()),
+        points_written: counts.iter().map(|count| count.written).sum(),
+        points_skipped: counts.iter().map(|count| count.skipped).sum(),
+        coarse_scale: counts.iter().any(|count| count.coarse_scale),
+    })
+}
+
+fn station_files(output_dir: &Path, cloud_count: usize) -> Vec<PathBuf> {
+    let mut files: Vec<PathBuf> = (0..cloud_count)
+        .map(|index| las_file_path(output_dir, index))
+        .collect();
+    files.push(stations_file_path(output_dir));
+    files
+}
+
+fn open_e57(path: &Path) -> Result<e57::E57Reader<BufReader<File>>> {
+    match e57::E57Reader::from_file(path) {
+        Ok(reader) => Ok(reader),
+        Err(err) => Err(open_error(path, err)),
+    }
+}
+
+/// A missing or unreadable path is [`Error::Open`]. A path that opens but is not
+/// valid E57 stays an [`Error::UnexpectedError`] carrying the reader error.
+fn open_error(path: &Path, err: e57::Error) -> Error {
+    match File::open(path) {
+        Err(source) => Error::Open {
+            path: path.to_path_buf(),
+            source,
+        },
+        Ok(_) => Error::UnexpectedError(
+            anyhow::Error::from(err).context(format!("Failed to open {}", path.display())),
+        ),
+    }
 }
 
 #[cfg(test)]
@@ -107,20 +225,15 @@ mod tests {
             let input_path = bunny_fixture();
 
             let output_dir = tempfile::tempdir().expect("Failed to create temp output dir");
-            let output_path = output_dir
-                .path()
-                .to_str()
-                .expect("Temp dir path is not valid UTF-8")
-                .to_string();
-            let number_of_threads = 4;
-            let as_stations = true;
             let las_version = LasVersion::new(1, 3).expect("Failed to create LAS version");
-            let result = convert_file(
+            let result = convert(
                 input_path,
-                output_path,
-                number_of_threads,
-                as_stations,
-                las_version,
+                output_dir.path(),
+                &Options {
+                    las_version,
+                    threads: 4,
+                    stations: true,
+                },
             );
 
             assert!(result.is_ok());
@@ -152,31 +265,16 @@ mod tests {
         // proving repeated calls work is the point of this test).
         let output_dir =
             std::env::temp_dir().join(format!("e57_to_las_twice_{}", std::process::id()));
-        let output_path = output_dir
-            .to_str()
-            .expect("Temp dir path is not valid UTF-8")
-            .to_string();
-        let number_of_threads = 4;
-        let as_stations = true;
-        let las_version = LasVersion::new(1, 3).expect("Failed to create LAS version");
+        let options = Options {
+            las_version: LasVersion::new(1, 3).expect("Failed to create LAS version"),
+            threads: 4,
+            stations: true,
+        };
 
-        let first = convert_file(
-            input_path.clone(),
-            output_path.clone(),
-            number_of_threads,
-            as_stations,
-            las_version,
-        );
+        let first = convert(&input_path, &output_dir, &options);
         assert!(first.is_ok(), "first conversion failed: {:?}", first);
 
-        let las_version = LasVersion::new(1, 3).expect("Failed to create LAS version");
-        let second = convert_file(
-            input_path,
-            output_path,
-            number_of_threads,
-            as_stations,
-            las_version,
-        );
+        let second = convert(&input_path, &output_dir, &options);
         assert!(second.is_ok(), "second conversion failed: {:?}", second);
 
         let _ = std::fs::remove_dir_all(&output_dir);
@@ -299,7 +397,7 @@ mod tests {
         clouds: &[SyntheticCloud],
         as_stations: bool,
         las_version: LasVersion,
-    ) -> Result<()> {
+    ) -> Result<Summary> {
         convert_synthetic_with_threads(dir, clouds, as_stations, las_version, 2)
     }
 
@@ -309,15 +407,17 @@ mod tests {
         as_stations: bool,
         las_version: LasVersion,
         number_of_threads: usize,
-    ) -> Result<()> {
+    ) -> Result<Summary> {
         let input = dir.join("input.e57");
         write_synthetic_e57(&input, clouds);
-        convert_file(
-            input.to_str().expect("non UTF-8 path").to_string(),
-            dir.to_str().expect("non UTF-8 path").to_string(),
-            number_of_threads,
-            as_stations,
-            las_version,
+        convert(
+            &input,
+            dir,
+            &Options {
+                las_version,
+                threads: number_of_threads,
+                stations: as_stations,
+            },
         )
     }
 
@@ -395,13 +495,14 @@ mod tests {
             "The output directory must not exist before conversion"
         );
 
-        let version = LasVersion::new(1, 4).expect("valid version");
-        let result = convert_file(
-            input.to_str().expect("non UTF-8 path").to_string(),
-            output_dir.to_str().expect("non UTF-8 path").to_string(),
-            1,
-            true,
-            version,
+        let result = convert(
+            &input,
+            &output_dir,
+            &Options {
+                threads: 1,
+                stations: true,
+                ..Options::default()
+            },
         );
         assert!(result.is_ok(), "conversion failed: {result:?}");
 
@@ -454,6 +555,7 @@ mod tests {
 
         let mut reader = e57::E57Reader::from_file(&input_path).expect("Failed to open bunny");
         let mut valid_points: u64 = 0;
+        let mut skipped_points: u64 = 0;
         for pointcloud in reader.pointclouds() {
             for p in reader
                 .pointcloud_simple(&pointcloud)
@@ -462,6 +564,8 @@ mod tests {
                 let p = p.expect("Failed to read point");
                 if matches!(p.cartesian, e57::CartesianCoordinate::Valid { .. }) {
                     valid_points += 1;
+                } else {
+                    skipped_points += 1;
                 }
             }
         }
@@ -469,18 +573,23 @@ mod tests {
 
         let dir = tempfile::tempdir().expect("Failed to create temp dir");
         let version = LasVersion::new(1, 4).expect("valid version");
-        convert_file(
-            input_path,
-            dir.path().to_str().expect("non UTF-8 path").to_string(),
-            2,
-            false,
-            version,
+        let summary = convert(
+            &input_path,
+            dir.path(),
+            &Options {
+                las_version: version,
+                threads: 2,
+                stations: false,
+            },
         )
         .expect("conversion failed");
 
         let (header, points) = read_las(&dir.path().join("las").join("0.las"));
         assert_eq!(header.number_of_points(), valid_points);
         assert_eq!(points.len() as u64, valid_points);
+        assert_eq!(summary.points_written, valid_points);
+        assert_eq!(summary.points_skipped, skipped_points);
+        assert_eq!(summary.files, vec![dir.path().join("las").join("0.las")]);
     }
 
     #[test]
@@ -564,7 +673,9 @@ mod tests {
         }];
         let dir = tempfile::tempdir().expect("Failed to create temp dir");
         let version = LasVersion::new(1, 4).expect("valid version");
-        convert_synthetic(dir.path(), &clouds, true, version).expect("conversion failed");
+        let summary =
+            convert_synthetic(dir.path(), &clouds, true, version).expect("conversion failed");
+        assert!(summary.coarse_scale);
 
         let (header, points) = read_las(&dir.path().join("las").join("0.las"));
         let scale = header.transforms().x.scale;
@@ -594,7 +705,9 @@ mod tests {
         ];
         let dir = tempfile::tempdir().expect("Failed to create temp dir");
         let version = LasVersion::new(1, 4).expect("valid version");
-        convert_synthetic(dir.path(), &clouds, false, version).expect("conversion failed");
+        let summary =
+            convert_synthetic(dir.path(), &clouds, false, version).expect("conversion failed");
+        assert!(summary.coarse_scale);
 
         let (header, points) = read_las(&dir.path().join("las").join("0.las"));
         let scale = header.transforms().z.scale;
@@ -635,7 +748,11 @@ mod tests {
                 let err = convert_synthetic(dir.path(), &mixed_clouds(), as_stations, version)
                     .expect_err("conversion should fail for colored input");
 
-                let message = format!("{err:#}");
+                assert!(
+                    matches!(err, Error::ColorUnsupported { version } if version.to_string() == format!("1.{minor}")),
+                    "stations={as_stations}, 1.{minor}: unexpected error: {err:?}"
+                );
+                let message = err.to_string();
                 assert!(
                     message.contains(&format!("LAS 1.{minor} cannot store point colors")),
                     "stations={as_stations}, 1.{minor}: unexpected error: {message}"
@@ -755,12 +872,14 @@ mod tests {
             );
 
             let version = LasVersion::new(1, 4).expect("valid version");
-            let err = convert_file(
-                input.to_str().expect("non UTF-8 path").to_string(),
-                dir.path().to_str().expect("non UTF-8 path").to_string(),
-                2,
-                as_stations,
-                version,
+            let err = convert(
+                &input,
+                dir.path(),
+                &Options {
+                    las_version: version,
+                    threads: 2,
+                    stations: as_stations,
+                },
             )
             .expect_err("conversion of a corrupt file should fail");
             let message = format!("{err:#}");
@@ -770,5 +889,83 @@ mod tests {
             );
             assert_no_output_files(dir.path());
         }
+    }
+
+    #[test]
+    fn test_summary_for_merged_and_stations() {
+        let clouds = mixed_clouds();
+        let total: u64 = clouds.iter().map(|cloud| cloud.points.len() as u64).sum();
+        let version = LasVersion::new(1, 4).expect("valid version");
+
+        let merged_dir = tempfile::tempdir().expect("Failed to create temp dir");
+        let merged = convert_synthetic(merged_dir.path(), &clouds, false, version)
+            .expect("merged conversion failed");
+        assert_eq!(
+            merged.files,
+            vec![merged_dir.path().join("las").join("0.las")]
+        );
+        assert_eq!(merged.points_written, total);
+        assert_eq!(merged.points_skipped, 0);
+        assert!(!merged.coarse_scale);
+        assert_summary_files_exist(&merged);
+
+        let stations_dir = tempfile::tempdir().expect("Failed to create temp dir");
+        let stations = convert_synthetic(stations_dir.path(), &clouds, true, version)
+            .expect("stations conversion failed");
+        let mut expected: Vec<_> = (0..clouds.len())
+            .map(|index| stations_dir.path().join("las").join(format!("{index}.las")))
+            .collect();
+        expected.push(stations_dir.path().join("stations.json"));
+        assert_eq!(stations.files, expected);
+        assert_eq!(stations.points_written, total);
+        assert_eq!(stations.points_skipped, 0);
+        assert_summary_files_exist(&stations);
+
+        let written_on_disk: u64 = stations
+            .files
+            .iter()
+            .filter(|path| path.extension().is_some_and(|ext| ext == "las"))
+            .map(|path| read_las(path).0.number_of_points())
+            .sum();
+        assert_eq!(written_on_disk, stations.points_written);
+    }
+
+    fn assert_summary_files_exist(summary: &Summary) {
+        for path in &summary.files {
+            assert!(path.is_file(), "missing {}", path.display());
+        }
+    }
+
+    #[test]
+    fn test_missing_file_is_not_found() {
+        let dir = tempfile::tempdir().expect("Failed to create temp dir");
+        let err = convert(
+            dir.path().join("missing.e57"),
+            dir.path(),
+            &Options::default(),
+        )
+        .expect_err("missing file should fail");
+
+        match err {
+            Error::Open { source, .. } => {
+                assert_eq!(source.kind(), std::io::ErrorKind::NotFound);
+            }
+            other => panic!("expected Error::Open, got {other:?}"),
+        }
+        assert!(!dir.path().join("las").exists());
+    }
+
+    #[test]
+    fn test_unreadable_e57_is_not_a_missing_file() {
+        let dir = tempfile::tempdir().expect("Failed to create temp dir");
+        let input = dir.path().join("bad.e57");
+        std::fs::write(&input, b"this is not an e57 file").expect("write");
+
+        let err = convert(&input, dir.path(), &Options::default())
+            .expect_err("invalid bytes should fail");
+        assert!(
+            !matches!(err, Error::Open { .. }),
+            "a file that exists is not a missing-file error: {err:?}"
+        );
     }
 }

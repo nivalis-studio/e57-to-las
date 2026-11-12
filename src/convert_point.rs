@@ -13,12 +13,6 @@ use e57::CartesianCoordinate;
 ///   are not valid, or if `x`, `y` or `z` is not finite (`NaN` or ±infinity). Otherwise, it returns a
 ///   `Some(las::Point)` containing the converted point.
 ///
-/// # Example
-/// ```ignore
-/// use e57_to_las::convert_point;
-/// let e57_point = e57::Point {  };
-/// let las_point = convert_point(e57_point);
-/// ```
 pub fn convert_point(point: e57::Point) -> Option<las::Point> {
     let mut las_point = las::Point::default();
 

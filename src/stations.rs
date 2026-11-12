@@ -1,5 +1,5 @@
 use crate::spatial_point::SpatialPoint;
-use crate::utils::ensure_parent_dir;
+use crate::utils::{ensure_parent_dir, stations_file_path};
 use anyhow::{Context, Result};
 use e57::PointCloud;
 use std::{
@@ -29,7 +29,7 @@ pub(crate) fn save_stations<P: AsRef<Path>>(
         })
         .collect();
 
-    let stations_path = ensure_parent_dir(output_path.as_ref().join("stations.json"))?;
+    let stations_path = ensure_parent_dir(stations_file_path(output_path.as_ref()))?;
     let stations_file = File::create(&stations_path)
         .with_context(|| format!("Failed to create {}.", stations_path.display()))?;
     let mut writer = BufWriter::new(stations_file);

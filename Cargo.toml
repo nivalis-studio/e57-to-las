@@ -14,9 +14,13 @@ exclude = ["/examples"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = ["cli"]
+cli = ["dep:clap"]
+
 [dependencies]
 anyhow = "1.0.102"
-clap = { version = "4.6.0", features = ["derive"] }
+clap = { version = "4.6.0", features = ["derive"], optional = true }
 e57 = "0.11.13"
 serde_json = { version = "1.0.149" }
 serde = { version = "1.0.228", features = ["derive"] }
@@ -27,6 +31,10 @@ thiserror = { version = "2.0.18" }
 
 [dev-dependencies]
 tempfile = "3.27.0"
+
+[[bin]]
+name = "e57-to-las"
+required-features = ["cli"]
 
 [profile.release]
 lto = true

@@ -69,7 +69,12 @@ impl StagedLas {
     }
 
     /// Closes the writer and moves the temporary file onto the final path.
-    pub(crate) fn commit(mut self) -> Result<()> {
+    /// Returns the number of points written.
+    pub(crate) fn commit(mut self) -> Result<u64> {
+        let written = self
+            .writer
+            .as_ref()
+            .map_or(0, |writer| writer.header().number_of_points());
         self.close_writer()?;
         std::fs::rename(&self.temp_path, &self.final_path).with_context(|| {
             format!(
@@ -78,7 +83,7 @@ impl StagedLas {
             )
         })?;
         self.committed = true;
-        Ok(())
+        Ok(written)
     }
 }
 
