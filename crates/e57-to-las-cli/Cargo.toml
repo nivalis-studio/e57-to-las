@@ -18,3 +18,15 @@ path = "src/main.rs"
 
 [dependencies]
 e57-to-las = { workspace = true, features = ["parallel", "crc32c", "laz-parallel", "serde"] }
+anyhow.workspace = true
+clap.workspace = true
+ctrlc.workspace = true
+indicatif.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

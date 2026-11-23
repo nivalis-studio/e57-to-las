@@ -792,3 +792,35 @@ fn bunny_fixture_converts() {
         }
     }
 }
+
+/// Many point clouds into one LAZ file on several threads, with enough points
+/// for the parallel LAZ compressor to run while other clouds are being read.
+#[cfg(feature = "laz")]
+#[test]
+fn merged_laz_from_many_clouds_on_many_threads() {
+    let clouds: Vec<Cloud> = (0..24)
+        .map(|c| {
+            cloud(
+                (0..45_000)
+                    .map(|i| {
+                        p(i as f64 * 0.001, c as f64, (i % 13) as f64).color(
+                            (i % 251) as u8,
+                            c as u8,
+                            7,
+                        )
+                    })
+                    .collect(),
+            )
+        })
+        .collect();
+    let fx = fixture(&clouds);
+    let out = fx.path("out.laz");
+    let summary = Converter::new()
+        .threads(4)
+        .convert(&fx.input, FileOutput::new(&out))
+        .unwrap();
+    assert_eq!(summary.points_written(), 24 * 45_000);
+    let (_, points) = read_las(&out);
+    assert_eq!(points.len(), 24 * 45_000);
+    assert_eq!(fx.files(), ["input.e57", "out.laz"]);
+}

@@ -97,10 +97,63 @@ struct Counters {
     filtered: AtomicU64,
 }
 
+/// Points of a LAZ output buffered before compression, so the parallel LAZ
+/// compressor gets many chunks (of 50,000 points) at once.
+const LAZ_BUFFER_POINTS: usize = 50_000 * 16;
+
+/// An open LAS writer, with LAZ records waiting to be compressed.
+struct OpenSink<W: std::io::Write + std::io::Seek + Send + Sync + 'static> {
+    writer: las::Writer<W>,
+    /// LAZ records waiting for compression. Its allocation is reused.
+    pending: las::PointData,
+    /// Number of points `pending` is flushed at; 0 writes every batch directly (LAS).
+    flush_at: usize,
+}
+
+impl<W: std::io::Write + std::io::Seek + Send + Sync + 'static> OpenSink<W> {
+    fn new(writer: las::Writer<W>, flush_at: usize) -> Self {
+        let pending = las::PointDataBuilder::new()
+            .for_header(writer.header())
+            .build();
+        OpenSink {
+            writer,
+            pending,
+            flush_at,
+        }
+    }
+
+    fn write(&mut self, bytes: Vec<u8>) -> las::Result<()> {
+        if self.flush_at == 0 {
+            let header = self.writer.header();
+            let points = las::PointDataBuilder::new()
+                .for_header(header)
+                .build_from_bytes(bytes)?;
+            return self.writer.write_points(&points);
+        }
+        let record_len = self.pending.record_len();
+        let held = self.pending.len();
+        let added = bytes.len() / record_len;
+        self.pending.resize_for(held + added)[held * record_len..].copy_from_slice(&bytes);
+        if self.pending.len() >= self.flush_at {
+            self.flush()?;
+        }
+        Ok(())
+    }
+
+    fn flush(&mut self) -> las::Result<()> {
+        if self.pending.is_empty() {
+            return Ok(());
+        }
+        self.writer.write_points(&self.pending)?;
+        self.pending.resize_for(0);
+        Ok(())
+    }
+}
+
 enum Sink<W: std::io::Write + std::io::Seek + Send + Sync + 'static> {
     /// No writer yet: created at the first batch.
     Pending,
-    Open(las::Writer<W>),
+    Open(OpenSink<W>),
     Finished(OutputSummary),
     /// Aborted, or abandoned for a restart.
     Closed,
@@ -416,43 +469,45 @@ impl<'a, O: Output> Engine<'a, O> {
         jobs: &[J],
         work: impl Fn(&J, &mut E57Reader) -> Result<()> + Sync,
     ) -> Result<()> {
-        let run_one = |job: &J, reader: &mut E57Reader| -> Result<()> {
-            if self.stop.load(Relaxed) {
-                return Ok(());
+        // Every thread of the pool runs this loop, taking the next job from a
+        // shared counter. Jobs are not rayon tasks on purpose: a thread
+        // waiting inside rayon (for LAZ compression, while it holds an
+        // output's lock) may run queued tasks, and running another job there
+        // could re-enter that lock.
+        let next = AtomicUsize::new(0);
+        let failure: Mutex<Option<Error>> = Mutex::new(None);
+        let worker = || {
+            let mut reader: Option<E57Reader> = None;
+            while let Some(job) = jobs.get(next.fetch_add(1, Relaxed)) {
+                if self.stop.load(Relaxed) {
+                    break;
+                }
+                let result = match &mut reader {
+                    Some(reader) => Ok(reader),
+                    empty => self.scan.input.open().map(|r| empty.insert(r)),
+                }
+                .and_then(|reader| work(job, reader));
+                if let Err(err) = result {
+                    self.stop.store(true, Relaxed);
+                    lock(&failure).get_or_insert(err);
+                    break;
+                }
             }
-            work(job, reader).inspect_err(|_| self.stop.store(true, Relaxed))
         };
 
         #[cfg(feature = "parallel")]
         if self.parallel {
-            use rayon::prelude::*;
-            let slots: Vec<Mutex<Option<E57Reader>>> = (0..=rayon::current_num_threads())
-                .map(|_| Mutex::new(None))
-                .collect();
-            return jobs.par_iter().with_max_len(1).try_for_each(|job| {
-                let slot = rayon::current_thread_index()
-                    .map_or(slots.len() - 1, |i| i.min(slots.len() - 1));
-                let mut slot = lock(&slots[slot]);
-                let reader = match &mut *slot {
-                    Some(reader) => reader,
-                    empty => empty.insert(self.scan.input.open()?),
-                };
-                run_one(job, reader)
-            });
+            rayon::broadcast(|_| worker());
+        } else {
+            worker();
         }
+        #[cfg(not(feature = "parallel"))]
+        worker();
 
-        let mut reader: Option<E57Reader> = None;
-        for job in jobs {
-            if self.stop.load(Relaxed) {
-                break;
-            }
-            let reader = match &mut reader {
-                Some(reader) => reader,
-                empty => empty.insert(self.scan.input.open()?),
-            };
-            run_one(job, reader)?;
-        }
-        Ok(())
+        failure
+            .into_inner()
+            .unwrap_or_else(PoisonError::into_inner)
+            .map_or(Ok(()), Err)
     }
 
     /// Reads point cloud `cloud` of output `g` and writes its points.
@@ -542,11 +597,7 @@ impl<'a, O: Output> Engine<'a, O> {
         Ok(())
     }
 
-    fn open_writer(
-        &self,
-        plan: &Plan,
-        run: &GroupRun<O::Writer>,
-    ) -> Result<las::Writer<O::Writer>> {
+    fn open_writer(&self, plan: &Plan, run: &GroupRun<O::Writer>) -> Result<OpenSink<O::Writer>> {
         let transforms = *run
             .transforms
             .get_or_init(|| Transforms::around([0.0; 3], plan.precision.scale()));
@@ -558,10 +609,15 @@ impl<'a, O: Output> Engine<'a, O> {
             .output
             .create(&target)
             .map_err(|err| self.write_error(plan, err))?;
-        las::Writer::new(writer, header).map_err(|err| {
+        let writer = las::Writer::new(writer, header).map_err(|err| {
             self.output.abort(&target);
             self.write_error(plan, err)
-        })
+        })?;
+        let flush_at = match plan.format {
+            Format::Laz => LAZ_BUFFER_POINTS,
+            Format::Las => 0,
+        };
+        Ok(OpenSink::new(writer, flush_at))
     }
 
     fn build_header(&self, plan: &Plan, transforms: &Transforms) -> las::Result<las::Header> {
@@ -586,18 +642,10 @@ impl<'a, O: Output> Engine<'a, O> {
         if matches!(*sink, Sink::Pending) {
             *sink = Sink::Open(self.open_writer(plan, run)?);
         }
-        let Sink::Open(writer) = &mut *sink else {
+        let Sink::Open(open) = &mut *sink else {
             return Ok(());
         };
-        let header = writer.header();
-        let points = las::PointDataBuilder::new()
-            .with_format(*header.point_format())
-            .with_transforms(*header.transforms())
-            .build_from_bytes(bytes)
-            .map_err(|err| self.write_error(plan, err))?;
-        writer
-            .write_points(&points)
-            .map_err(|err| self.write_error(plan, err))
+        open.write(bytes).map_err(|err| self.write_error(plan, err))
     }
 
     /// Completes the output once its last point cloud is written.
@@ -610,15 +658,21 @@ impl<'a, O: Output> Engine<'a, O> {
             return Ok(());
         }
         let mut sink = lock(&run.sink);
-        let mut writer = match std::mem::replace(&mut *sink, Sink::Closed) {
+        let mut open = match std::mem::replace(&mut *sink, Sink::Closed) {
             Sink::Pending => self.open_writer(plan, run)?,
-            Sink::Open(writer) => writer,
+            Sink::Open(open) => open,
             other => {
                 *sink = other;
                 return Ok(());
             }
         };
         let target = self.target(plan);
+        if let Err(err) = open.flush() {
+            discard_writer(open.writer);
+            self.output.abort(&target);
+            return Err(self.write_error(plan, err));
+        }
+        let mut writer = open.writer;
         let transforms = *writer.header().transforms();
         if let Err(err) = writer.close() {
             forget_writer(writer);
@@ -679,10 +733,8 @@ impl<'a, O: Output> Engine<'a, O> {
     fn abort(&self, plan: &Plan, run: &GroupRun<O::Writer>) {
         let mut sink = lock(&run.sink);
         match std::mem::replace(&mut *sink, Sink::Closed) {
-            Sink::Open(mut writer) => {
-                if writer.close().is_err() {
-                    forget_writer(writer);
-                }
+            Sink::Open(open) => {
+                discard_writer(open.writer);
                 self.output.abort(&self.target(plan));
             }
             Sink::Finished(summary) => *sink = Sink::Finished(summary),
@@ -736,6 +788,15 @@ impl<'a, O: Output> Engine<'a, O> {
             .into_iter()
             .map(|b| b.into_inner().unwrap_or_else(PoisonError::into_inner))
             .collect())
+    }
+}
+
+/// Closes a writer whose output is abandoned, ignoring errors.
+fn discard_writer<W: std::io::Write + std::io::Seek + Send + Sync + 'static>(
+    mut writer: las::Writer<W>,
+) {
+    if writer.close().is_err() {
+        forget_writer(writer);
     }
 }
 

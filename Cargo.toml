@@ -24,6 +24,10 @@ serde_json = "1.0.149"
 thiserror = "2.0.18"
 uuid = "1.23.0"
 tempfile = "3.27.0"
+anyhow = "1.0.102"
+clap = { version = "4.6.0", features = ["derive"] }
+ctrlc = "3.5.0"
+indicatif = "0.18.0"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
@@ -38,6 +42,10 @@ dbg_macro = "warn"
 print_stdout = "warn"
 print_stderr = "warn"
 large_types_passed_by_value = "warn"
+
+# Optimize dependencies in tests: E57 decoding and LAZ compression are slow unoptimized.
+[profile.dev.package."*"]
+opt-level = 2
 
 [profile.release]
 lto = true
