@@ -24,6 +24,7 @@ serde_json = "1.0.149"
 thiserror = "2.0.18"
 uuid = "1.23.0"
 tempfile = "3.27.0"
+divan = "0.1.21"
 anyhow = "1.0.102"
 clap = { version = "4.6.0", features = ["derive"] }
 ctrlc = "3.5.0"

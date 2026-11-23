@@ -223,9 +223,15 @@ fn convert(args: ConvertArgs) -> anyhow::Result<()> {
         .unwrap_or_else(|| default_output(&args.input, args.split, args.format));
     let file_output = FileOutput::new(&output);
     if args.split && !file_output.has_placeholders() {
+        let stem = output.file_stem().unwrap_or_default().to_string_lossy();
+        let extension = output
+            .extension()
+            .map_or("las".into(), |e| e.to_string_lossy());
         bail!(
             "with --split, the output must be a template such as {}",
-            Path::new(&output).join("{index}.las").display()
+            output
+                .with_file_name(format!("{stem}_{{index}}.{extension}"))
+                .display()
         );
     }
 

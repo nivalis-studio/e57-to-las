@@ -15,6 +15,8 @@ categories = ["command-line-utilities", "science::geo"]
 [[bin]]
 name = "e57-to-las"
 path = "src/main.rs"
+# Same file name as the library docs; the binary has no API to document.
+doc = false
 
 [dependencies]
 e57-to-las = { workspace = true, features = ["parallel", "crc32c", "laz-parallel", "serde"] }

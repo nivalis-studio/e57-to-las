@@ -1,106 +1,136 @@
-# E57 to LAS conversion
+# E57 to LAS
 
 [![Crates.io](https://img.shields.io/crates/v/e57-to-las.svg)](https://crates.io/crates/e57-to-las)
-[![No Unsafe](https://img.shields.io/badge/unsafe-forbidden-brightgreen.svg)](https://doc.rust-lang.org/nomicon/meet-safe-and-unsafe.html)
 [![Documentation](https://docs.rs/e57-to-las/badge.svg)](https://docs.rs/e57-to-las)
+[![No Unsafe](https://img.shields.io/badge/unsafe-forbidden-brightgreen.svg)](https://doc.rust-lang.org/nomicon/meet-safe-and-unsafe.html)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Dependencies](https://deps.rs/repo/github/nivalis-studio/e57-to-las/status.svg)](https://deps.rs/repo/github/nivalis-studio/e57-to-las)
 
-A utility to convert E57 point cloud files to LAS format. It is based on the [E57 crate](https://github.com/cry-inc/e57) and the [LAS crate](https://github.com/gadomski/las-rs).
+Convert E57 point clouds (laser scans) to LAS or LAZ: a Rust library and a command-line tool.
+Built on the [`e57`](https://github.com/cry-inc/e57) and [`las`](https://github.com/gadomski/las-rs) crates.
 
-## About
+- **Fast**: scans are decoded in parallel and points are encoded on the decoding threads; memory use does not grow with the file.
+- **Complete**: coordinates with the scan pose applied, colors, intensity, GPS time, returns, scan index as point source ID, and optionally surface normals and scan grid row/column. The E57 coordinate system is copied as WKT.
+- **Flexible output**: one merged file, one file per scan, or your own grouping; file names from a template; LAS or LAZ; files, memory or any writer.
+- **Safe**: a file appears only once complete; a failed or cancelled conversion leaves nothing behind.
+- **Embeddable**: progress events, cancellation, warnings returned instead of printed, typed errors, no `e57` or `las` types in the API.
 
-`e57-to-las` is an open-source tool designed to convert point cloud files in the E57 format to the LAS format. The conversion retains all the relevant point data and associated metadata, making it easier for users to work with point cloud data in environments that primarily support LAS. We use it to convert E57 files to LAS for use in [Potree](https://github.com/potree/potree/) for web-based point cloud visualization.
+## Command line
 
-## Features
-
-- [x] Parallel processing using `rayon` for faster conversion.
-- [x] Streaming conversion: points are written as they are decoded, so memory use stays roughly constant regardless of the number of points.
-- [x] Errors are reported with context and stop the conversion. A failed conversion leaves no partial LAS file behind (with `--stations`, point clouds already converted stay). Points with invalid coordinates are skipped. The command-line tool prints how many were skipped; library callers read the count from `Summary`.
-- [x] Optional pointclouds splitting in distinct LAS files and generation of station file (`stations.json`), containing spatial coordinates of station points. This is activated by adding the `--stations` flag, and the station points are calculated based on the transformation translations of the point clouds.
-
-## Usage
-
-Install the command-line tool with `cargo install e57-to-las`, then run:
-
-```bash
-e57-to-las [OPTIONS] --path <PATH>
+```sh
+cargo install e57-to-las-cli
 ```
 
-To get changes that are not yet released on crates.io, install from the repository instead: `cargo install --git https://github.com/nivalis-studio/e57-to-las`.
-
-For example:
-
-```bash
-e57-to-las --path scan.e57 --output out/ --stations --las-version 1.2
+```sh
+e57-to-las scan.e57                      # writes scan.las next to scan.e57
+e57-to-las scan.e57 out/scan.laz         # LAZ, from the extension
+e57-to-las scan.e57 --split              # one file per scan: scan/0.las, scan/1.las, ...
+e57-to-las scan.e57 'out/{name}.las' --split --clouds 0,2-4
+e57-to-las info scan.e57                 # scans, point counts, poses, attributes, CRS
 ```
 
-### Options
+The output path is a template: `{index}` (scan index), `{name}` (scan name), `{guid}`, `{key}` (output key) and `{stem}` (input file name) are replaced.
+Two outputs resolving to the same path are refused before anything is written.
 
-- `-p, --path <PATH>`: The path to the input E57 file.
-- `-o, --output <OUTPUT>`: The output directory for the converted LAS files (default: `./`).
-- `-T, --threads <THREADS>`: Number of threads for parallel processing (default: 0 = max possible).
-- `-S, --stations`: Write each point cloud (station) to its own LAS file and generate `stations.json`. Off by default.
-- `-L, --las-version <LAS_VERSION>`: Version of LAS format used for the output files, from `1.0` to `1.4` (default: `1.4`). LAS 1.0 and 1.1 cannot store colors: converting a colored scan with these versions fails with an error, so use `1.2` or newer.
-- `-h, --help`: Print help.
-- `-V, --version`: Print version.
+| Option | |
+|---|---|
+| `-s, --split` | One file per scan instead of one merged file |
+| `-f, --format las\|laz` | Output format (default: from the extension) |
+| `-L, --las-version 1.0..1.4` | LAS version (default 1.4; colors need 1.2+, a WKT CRS needs 1.4) |
+| `--scale 0.001` | Coordinate precision in meters |
+| `--crs from-e57\|none\|<WKT or file>` | Coordinate reference system |
+| `--clouds 0,2,5-7` | Convert only these scans |
+| `--stable-order` | Same point order on every run |
+| `-T, --threads N` | Threads (default: all CPUs) |
+| `--stations stations.json` | Write each scan's position and rotation |
+| `--no-color`, `--no-intensity`, `--no-time`, `--no-returns`, `--no-source-id` | Drop an attribute |
+| `--normals`, `--row-column` | Add normals / scan grid indices as LAS extra bytes |
+| `--json`, `-q` | Machine-readable summary / no output |
 
-### Output
+Ctrl-C stops the conversion and removes unfinished files.
 
-- Without `--stations`, all point clouds are merged into `<output>/las/0.las`. The point clouds are decoded in parallel, so their points can be interleaved in the file and the order can differ between runs; the set of points is always the same. Use `--threads 1` to keep the points in point cloud order.
-- With `--stations`, each point cloud is written to `<output>/las/<index>.las`, and `<output>/stations.json` maps each index to the `x`/`y`/`z` translation of that scan.
-- Coordinates are stored with 1 mm precision. A coarser precision is only used when the points span more than about 2,147 km.
-- The tool prints how many points were written, the path of each file it wrote, and, when some points had invalid coordinates, how many were skipped.
+The layout of earlier versions (`--stations`) is reproduced with:
 
-### Library
+```sh
+e57-to-las scan.e57 'out/las/{index}.las' --split --stations out/stations.json
+```
 
-To use this as a crate in your own project, add it to your `Cargo.toml`:
+## Library
 
-```bash
+```sh
 cargo add e57-to-las
 ```
 
-You can then use it in your code as follows:
+One call with the defaults:
 
 ```rust
-use e57_to_las::{LasVersion, Options, convert};
+let summary = e57_to_las::convert("scan.e57", "scan.las")?;
+println!("{} points", summary.points_written());
+```
 
-fn main() -> e57_to_las::Result<()> {
-    let options = Options {
-        las_version: LasVersion::new(1, 4)?, // 1.0 to 1.4
-        threads: 0, // 0 = one worker per logical CPU
-        stations: true,
-    };
-    let summary = convert("path/to/input.e57", "path/to/output/directory", &options)?;
-    println!(
-        "Wrote {} points ({} skipped)",
-        summary.points_written, summary.points_skipped
-    );
-    Ok(())
+Every option is on [`Converter`](https://docs.rs/e57-to-las/latest/e57_to_las/struct.Converter.html):
+
+```rust
+use e57_to_las::{CancelToken, Converter, Event, Grouping, LasVersion, Precision, output::FileOutput};
+
+let cancel = CancelToken::new(); // clone it to a UI button, a signal handler, another task...
+
+let summary = Converter::new()
+    .las_version(LasVersion::V1_4)
+    .precision(Precision::Scale(0.0005))
+    .grouping(Grouping::PerCloud)
+    .select(|cloud| cloud.point_count > 0)
+    .map_points(|point| {
+        point.z -= 47.3;                        // change points...
+        point.intensity.is_none_or(|i| i > 500) // ...or drop them
+    })
+    .observer(|event| {
+        if let Event::Progress { points_done, points_total } = event {
+            eprintln!("{points_done}/{points_total}");
+        }
+    })
+    .cancel_token(cancel.clone())
+    .convert("scan.e57", FileOutput::new("out/{stem}_{index}.laz"))?;
+
+for warning in &summary.warnings {
+    eprintln!("warning: {warning}");
 }
 ```
 
-The `cli` feature (on by default) builds the `e57-to-las` binary and pulls in `clap`. Disable default features to depend on the library without it:
+Inputs are paths, bytes in memory or any function returning a `Read + Seek`.
+Outputs implement the [`Output`](https://docs.rs/e57-to-las/latest/e57_to_las/output/trait.Output.html) trait: `FileOutput` (templates, atomic writes), `MemoryOutput`, `output::from_fn(|target| ...)` for any `Write + Seek`, or your own type.
+`Scan::open` reads the metadata only, to inspect scans before converting or to read points without writing LAS.
 
-```toml
-e57-to-las = { version = "0.9.0", default-features = false }
+### Features
+
+| Feature | Default | |
+|---|---|---|
+| `parallel` | yes | Decode scans on a thread pool ([rayon](https://github.com/rayon-rs/rayon)) |
+| `crc32c` | yes | Hardware-accelerated E57 checksums |
+| `laz` | | Write LAZ |
+| `laz-parallel` | | Compress LAZ on several threads |
+| `serde` | | `Serialize`/`Deserialize` for `CloudInfo`, `Summary`, options... |
+
+## What gets written
+
+- **Point format**: legacy LAS formats 0 to 3 (with or without GPS time and color), readable by every LAS tool. Normals (3 × `f32`) and row/column (2 × `i32`) are LAS extra bytes, described in an Extra Bytes VLR.
+- **Precision**: 1 mm by default. The offset comes from the scan bounds in the E57 metadata, or from the first point. If points span more than about 2,147 km, a coarser scale is used and reported as a warning.
+- **GPS time**: adjusted standard GPS time when the scan start time is known; otherwise seconds since the scan start, with a warning.
+- **Coordinate system**: the E57 `coordinateMetadata` is written as a WKT VLR when it is WKT and the output is LAS 1.4.
+- **Skipped points**: points without valid, finite coordinates are skipped and counted in the summary.
+- **Point order**: scans sharing an output are read in parallel, so their points interleave. `--stable-order` (or `Converter::stable_order`) writes them in scan order.
+
+## Development
+
+The test fixtures are stored with Git LFS:
+
+```sh
+git lfs pull
+cargo test --workspace --all-features
+cargo bench -p e57-to-las --all-features   # needs fixtures/Trimble_StSulpice-Cloud-50mm.e57
 ```
 
-## Contribution
-
-If you'd like to contribute to the development of this tool, please create an issue or pull request on our GitHub repository. All contributions are welcome!
-
-## Dependencies
-
-Here are some of the main dependencies used:
-
-- `rayon`: Parallelism
-- `clap`: Command-line argument parsing (optional `cli` feature, enabled by default)
-- `e57`: E57 file format reader
-- `las`: LAS file format writer
-- `uuid`: For GUID processing
-- `serde`: For serialization and deserialization of data
+The minimum supported Rust version is the latest stable release (`rust-version` in `Cargo.toml`).
 
 ## License
 
-Open-source MIT. See [LICENSE](LICENSE) for details.
+MIT. See [LICENSE](LICENSE).

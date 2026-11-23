@@ -31,6 +31,8 @@ jobs:
             os: macos-latest
           - target: universal-apple-darwin
             os: macos-latest
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -39,5 +41,6 @@ jobs:
           bin: e57-to-las
           tar: unix
           zip: all
-          features: ${{ matrix.features || '' }}
+          target: ${{ matrix.target }}
+          manifest-path: crates/e57-to-las-cli/Cargo.toml
           token: ${{ secrets.GITHUB_TOKEN }}
