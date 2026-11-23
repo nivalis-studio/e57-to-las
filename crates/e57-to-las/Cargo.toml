@@ -1,0 +1,44 @@
+[package]
+name = "e57-to-las"
+description = "Convert E57 point clouds to LAS and LAZ: a library with streaming, parallel decoding, progress and cancellation"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+readme.workspace = true
+homepage.workspace = true
+repository.workspace = true
+authors.workspace = true
+keywords.workspace = true
+categories = ["science::geo"]
+
+[features]
+default = ["parallel", "crc32c"]
+## Decode point clouds on several threads (rayon). Without it, everything runs on the calling thread.
+parallel = ["dep:rayon"]
+## Write compressed `.laz` output.
+laz = ["las/laz"]
+## Compress LAZ output on several threads.
+laz-parallel = ["laz", "parallel", "las/laz-parallel"]
+## Serialize/deserialize the public data types (`CloudInfo`, `Summary`, ...).
+serde = ["dep:serde"]
+## Hardware-accelerated CRC32C to validate E57 pages.
+crc32c = ["e57/crc32c"]
+
+[dependencies]
+e57.workspace = true
+las.workspace = true
+rayon = { workspace = true, optional = true }
+serde = { workspace = true, optional = true }
+thiserror.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+all-features = true

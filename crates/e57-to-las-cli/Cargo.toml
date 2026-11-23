@@ -1,0 +1,20 @@
+[package]
+name = "e57-to-las-cli"
+description = "Command-line tool to convert E57 point clouds to LAS and LAZ"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+readme.workspace = true
+homepage.workspace = true
+repository.workspace = true
+authors.workspace = true
+keywords.workspace = true
+categories = ["command-line-utilities", "science::geo"]
+
+[[bin]]
+name = "e57-to-las"
+path = "src/main.rs"
+
+[dependencies]
+e57-to-las = { workspace = true, features = ["parallel", "crc32c", "laz-parallel", "serde"] }

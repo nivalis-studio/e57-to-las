@@ -1,42 +1,48 @@
-[package]
-name = "e57-to-las"
-description = "Convert E57 point cloud files to LAS"
-version = "0.9.0"
-readme = "README.md"
-license = "MIT"
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "1.0.0-alpha.1"
 edition = "2024"
+rust-version = "1.99"
+license = "MIT"
+readme = "README.md"
 homepage = "https://github.com/nivalis-studio/e57-to-las"
 repository = "https://github.com/nivalis-studio/e57-to-las"
-keywords = ["e57", "lidar", "pointclouds", "laserscanning", "geospatial"]
-categories = ["science::geo"]
 authors = ["pnodet <paul.nodet@gmail.com>", "pnwa <pnwa@icloud.com>"]
-exclude = ["/examples"]
+keywords = ["e57", "las", "laz", "lidar", "pointcloud"]
+categories = ["science::geo", "command-line-utilities"]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[features]
-default = ["cli"]
-cli = ["dep:clap"]
-
-[dependencies]
-anyhow = "1.0.102"
-clap = { version = "4.6.0", features = ["derive"], optional = true }
-e57 = "0.11.13"
-serde_json = { version = "1.0.149" }
-serde = { version = "1.0.228", features = ["derive"] }
-las = { version = "0.11.2" }
+[workspace.dependencies]
+e57-to-las = { path = "crates/e57-to-las", version = "1.0.0-alpha.1", default-features = false }
+e57 = "0.11.14"
+las = "0.11.2"
 rayon = "1.11.0"
-uuid = { version = "1.23.0", features = ["v4"] }
-thiserror = { version = "2.0.18" }
-
-[dev-dependencies]
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
+thiserror = "2.0.18"
+uuid = "1.23.0"
 tempfile = "3.27.0"
 
-[[bin]]
-name = "e57-to-las"
-required-features = ["cli"]
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+unreachable_pub = "warn"
+
+[workspace.lints.clippy]
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"
+dbg_macro = "warn"
+print_stdout = "warn"
+print_stderr = "warn"
+large_types_passed_by_value = "warn"
 
 [profile.release]
 lto = true
-opt-level = 3
+codegen-units = 1
+
+[profile.bench]
+lto = true
 codegen-units = 1
